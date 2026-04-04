@@ -6,8 +6,12 @@
  */
 
 import chalk from 'chalk'
+import { writeFileSync } from 'fs'
+import { resolve } from 'path'
 import { loadBagdockJson, API_BASE } from './config'
 import { getAuthToken } from './auth'
+import { isJsonMode, outputSuccess, outputError, status as logStatus } from './output'
+import { requireSlug } from './link'
 
 function requireAuth(): string {
   const token = getAuthToken()
@@ -103,6 +107,54 @@ export async function envRemove(key: string) {
     }
 
     console.log(chalk.green(`Removed ${key}`), chalk.dim('— will take effect on next deploy'))
+  } catch (err: any) {
+    console.error(chalk.red('Failed:'), err.message)
+    process.exit(1)
+  }
+}
+
+export async function envPull(file?: string) {
+  const token = requireAuth()
+  const slug = requireSlug()
+  const target = resolve(file ?? '.env.local')
+
+  logStatus(`Pulling env vars for ${slug}...`)
+
+  try {
+    const res = await fetch(`${API_BASE}/v1/developer/apps/${slug}/env`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+
+    if (!res.ok) {
+      outputError('api_error', `Failed to pull env vars (${res.status})`)
+      process.exit(1)
+    }
+
+    const { data } = await res.json() as { data: Array<{ key: string; updatedAt: string }> }
+
+    if (isJsonMode()) {
+      outputSuccess({ file: target, keys: data.map((v) => v.key) })
+      return
+    }
+
+    if (!data?.length) {
+      console.log(chalk.yellow('No environment variables set.'))
+      return
+    }
+
+    const lines = [
+      `# Pulled from Bagdock — ${slug}`,
+      `# ${new Date().toISOString()}`,
+      `# Values are placeholders — the API does not expose secrets.`,
+      `# Fill in real values for local development.`,
+      '',
+      ...data.map((v) => `${v.key}=`),
+      '',
+    ]
+
+    writeFileSync(target, lines.join('\n'))
+    console.log(chalk.green(`Wrote ${data.length} keys to ${target}`))
+    console.log(chalk.yellow('Note:'), 'Values are empty — fill them in for local dev.')
   } catch (err: any) {
     console.error(chalk.red('Failed:'), err.message)
     process.exit(1)

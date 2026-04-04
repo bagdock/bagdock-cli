@@ -16,6 +16,12 @@ curl -fsSL https://bdok.dev/install.sh | bash
 irm https://bdok.dev/install.ps1 | iex
 ```
 
+### Homebrew (macOS / Linux)
+
+```bash
+brew install bagdock/cli/bagdock
+```
+
 ### Node.js
 
 ```bash
@@ -42,11 +48,15 @@ pnpm dlx @bagdock/cli --help
 
 ### Agent skills
 
-This CLI ships with an agent skill that teaches AI coding agents (Cursor, Claude Code, Windsurf, etc.) how to use the Bagdock CLI effectively — including non-interactive flags, output formats, and common pitfalls.
+This CLI ships with an agent skill that teaches AI coding agents (Cursor, Claude Code, Codex, Conductor, etc.) how to use the Bagdock CLI effectively — including non-interactive flags, output formats, and common pitfalls.
+
+To install skills for Bagdock's full platform (API, CLI, adapters) from the central skills repository:
 
 ```bash
 npx skills add bagdock/bagdock-skills
 ```
+
+See [bagdock/bagdock-skills](https://github.com/bagdock/bagdock-skills) for all available skills and plugin manifests.
 
 ## Local development
 
@@ -383,6 +393,129 @@ bagdock submit
 
 ---
 
+### `bagdock validate`
+
+Run local pre-submission checks on `bagdock.json` and your bundle before submitting.
+
+```bash
+bagdock validate
+```
+
+Checks performed:
+
+| Check | Pass | Warn | Fail |
+|-------|------|------|------|
+| bagdock.json | Found and parsed | — | Missing or invalid JSON |
+| Required fields | All present | — | Missing name, slug, version, type, category, or main |
+| Type | Valid type | — | Invalid type value |
+| Kind | — | Unknown kind | — |
+| Entry point | File exists (shows size) | — | File not found |
+| Bundle size | Under 10 MB | Approaching limit (>80%) | Over 10 MB |
+| Project link | — | Slug mismatch with linked project | — |
+
+```bash
+# JSON output
+bagdock validate --json
+# => {"ok":true,"checks":[...]}
+```
+
+Exit code `0` if all checks pass or warn. Exit code `1` if any check fails.
+
+---
+
+### `bagdock submission list`
+
+List submission history for the current app.
+
+```bash
+bagdock submission list
+bagdock submission list --app my-adapter --json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--app <slug>` | App slug (defaults to `bagdock.json` or linked project) |
+
+### `bagdock submission status <id>`
+
+Fetch detailed review state for a specific submission.
+
+```bash
+bagdock submission status iadpv_abc123
+bagdock submission status iadpv_abc123 --json
+```
+
+| Flag | Description |
+|------|-------------|
+| `--app <slug>` | App slug |
+
+### `bagdock submission withdraw <id>`
+
+Cancel a pending submission before approval. Only works when `review_status` is `submitted`.
+
+```bash
+bagdock submission withdraw iadpv_abc123
+```
+
+| Flag | Description |
+|------|-------------|
+| `--app <slug>` | App slug |
+
+#### Error codes
+
+| Code | Cause |
+|------|-------|
+| `not_found` | Submission or app not found |
+| `invalid_status` | App is not in `submitted` state |
+
+---
+
+### `bagdock open [slug]`
+
+Open the current project in the Bagdock dashboard.
+
+```bash
+bagdock open
+bagdock open my-adapter
+```
+
+Reads the slug from `bagdock.json`, linked project, or the argument.
+
+---
+
+### `bagdock inspect [slug]`
+
+Show deployment details and status for an app.
+
+```bash
+bagdock inspect
+bagdock inspect my-adapter --json
+```
+
+Displays: name, slug, type, version, review status, worker URL, namespace, timestamps.
+
+---
+
+### `bagdock link`
+
+Link the current directory to a Bagdock app or edge. Other commands use the linked slug as a fallback.
+
+```bash
+# Interactive: select from your apps
+bagdock link
+
+# Non-interactive
+bagdock link --slug my-adapter
+```
+
+| Flag | Description |
+|------|-------------|
+| `--slug <slug>` | Project slug (required in non-interactive mode) |
+
+Stores the link in `.bagdock/link.json` in the current directory.
+
+---
+
 ### `bagdock env list`
 
 List environment variables for the current app.
@@ -407,6 +540,17 @@ Remove an environment variable.
 ```bash
 bagdock env remove VENDOR_API_KEY
 ```
+
+### `bagdock env pull [file]`
+
+Pull remote env var keys to a local `.env` file for development.
+
+```bash
+bagdock env pull
+bagdock env pull .env.development
+```
+
+The API does not expose secret values. The file is created with keys and empty values — fill them in for local dev.
 
 ---
 

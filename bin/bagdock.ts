@@ -19,6 +19,11 @@
  *   submit    Submit for marketplace review
  *   env       Manage project environment variables
  *   keys      Manage operator API keys
+ *   validate  Pre-submission checks on bagdock.json
+ *   submission  Marketplace submission lifecycle
+ *   open      Open project in dashboard
+ *   inspect   Show deployment details
+ *   link      Link directory to project
  */
 
 import { Command } from 'commander'
@@ -32,7 +37,7 @@ const program = new Command()
 program
   .name('bagdock')
   .description('Bagdock developer CLI — built for humans, AI agents, and CI/CD pipelines')
-  .version('0.3.0')
+  .version('0.4.0')
   .option('--json', 'Force JSON output (auto-enabled in non-TTY)')
   .option('-q, --quiet', 'Suppress status messages (implies --json)')
   .option('--api-key <key>', 'API key to use for this invocation')
@@ -134,6 +139,80 @@ program
     await submit()
   })
 
+// ---------- Validate ----------
+
+program
+  .command('validate')
+  .description('Run local pre-submission checks on bagdock.json and bundle')
+  .action(async () => {
+    const { validate } = await import('../src/validate')
+    await validate()
+  })
+
+// ---------- Submission lifecycle ----------
+
+const subCmd = program
+  .command('submission')
+  .description('Track marketplace submission status')
+
+subCmd
+  .command('list')
+  .description('List submission history for the current app')
+  .option('--app <slug>', 'App slug (defaults to bagdock.json or linked project)')
+  .action(async (opts) => {
+    const { submissionList } = await import('../src/submission')
+    await submissionList(opts)
+  })
+
+subCmd
+  .command('status <id>')
+  .description('Fetch detailed review state for a submission')
+  .option('--app <slug>', 'App slug')
+  .action(async (id: string, opts) => {
+    const { submissionStatus } = await import('../src/submission')
+    await submissionStatus(id, opts)
+  })
+
+subCmd
+  .command('withdraw <id>')
+  .description('Cancel a pending submission before approval')
+  .option('--app <slug>', 'App slug')
+  .action(async (id: string, opts) => {
+    const { submissionWithdraw } = await import('../src/submission')
+    await submissionWithdraw(id, opts)
+  })
+
+// ---------- Open ----------
+
+program
+  .command('open [slug]')
+  .description('Open project in the Bagdock dashboard')
+  .action(async (slug?: string) => {
+    const { open } = await import('../src/open')
+    await open(slug)
+  })
+
+// ---------- Inspect ----------
+
+program
+  .command('inspect [slug]')
+  .description('Show deployment details and status for an app')
+  .action(async (slug?: string) => {
+    const { inspect } = await import('../src/inspect')
+    await inspect(slug)
+  })
+
+// ---------- Link ----------
+
+program
+  .command('link')
+  .description('Link current directory to a Bagdock app or edge')
+  .option('--slug <slug>', 'Project slug (required in non-interactive mode)')
+  .action(async (opts) => {
+    const { link } = await import('../src/link')
+    await link(opts)
+  })
+
 // ---------- Env ----------
 
 const envCmd = program
@@ -162,6 +241,14 @@ envCmd
   .action(async (key: string) => {
     const { envRemove } = await import('../src/env-cmd')
     await envRemove(key)
+  })
+
+envCmd
+  .command('pull [file]')
+  .description('Pull remote env var keys to a local .env file')
+  .action(async (file?: string) => {
+    const { envPull } = await import('../src/env-cmd')
+    await envPull(file)
   })
 
 // ---------- Keys ----------
