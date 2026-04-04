@@ -47,9 +47,11 @@ jobs:
           head -1 dist/bagdock.js | grep -q "#!/usr/bin/env node" || (echo "Missing shebang" && exit 1)
           echo "Build OK — $(wc -c < dist/bagdock.js) bytes"
 
-      - name: Publish to npm (Trusted Publishing / OIDC)
+      - name: Publish to npm
         if: ${{ !inputs.dry_run }}
         run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Dry run — would publish
         if: ${{ inputs.dry_run }}
