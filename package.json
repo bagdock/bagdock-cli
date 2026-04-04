@@ -1,7 +1,17 @@
 {
   "name": "@bagdock/cli",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Bagdock developer CLI — build, test, and deploy apps and edges on the Bagdock platform",
+  "keywords": [
+    "bagdock",
+    "cli",
+    "self-storage",
+    "developer-tools",
+    "deploy",
+    "serverless",
+    "integrations",
+    "adapters"
+  ],
   "license": "MIT",
   "repository": {
     "type": "git",
@@ -13,7 +23,7 @@
   },
   "type": "module",
   "bin": {
-    "bagdock": "./dist/bagdock.js"
+    "bagdock": "dist/bagdock.js"
   },
   "files": [
     "dist",
