@@ -1,6 +1,6 @@
 {
   "name": "@bagdock/cli",
-  "version": "0.1.4",
+  "version": "0.2.0",
   "description": "Bagdock developer CLI — build, test, and deploy apps and edges on the Bagdock platform",
   "keywords": [
     "bagdock",
