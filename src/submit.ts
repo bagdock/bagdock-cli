@@ -9,7 +9,8 @@
  */
 
 import chalk from 'chalk'
-import { loadBagdockJson, loadCredentials, API_BASE } from './config'
+import { loadBagdockJson, API_BASE } from './config'
+import { getAuthToken } from './auth'
 
 export async function submit() {
   const config = loadBagdockJson(process.cwd())
@@ -19,9 +20,9 @@ export async function submit() {
     process.exit(1)
   }
 
-  const creds = loadCredentials()
-  if (!creds?.accessToken) {
-    console.error(chalk.red('Not authenticated. Run'), chalk.cyan('bagdock login'), chalk.red('first.'))
+  const token = getAuthToken()
+  if (!token) {
+    console.error(chalk.red('Not authenticated. Run'), chalk.cyan('bagdock login'), chalk.red('or set BAGDOCK_API_KEY.'))
     process.exit(1)
   }
 
@@ -31,7 +32,7 @@ export async function submit() {
     const res = await fetch(`${API_BASE}/api/v1/developer/apps/${config.slug}/submit`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${creds.accessToken}`,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
     })

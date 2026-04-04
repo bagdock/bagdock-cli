@@ -6,15 +6,16 @@
  */
 
 import chalk from 'chalk'
-import { loadBagdockJson, loadCredentials, API_BASE } from './config'
+import { loadBagdockJson, API_BASE } from './config'
+import { getAuthToken } from './auth'
 
-function requireAuth() {
-  const creds = loadCredentials()
-  if (!creds?.accessToken) {
-    console.error(chalk.red('Not authenticated. Run'), chalk.cyan('bagdock login'))
+function requireAuth(): string {
+  const token = getAuthToken()
+  if (!token) {
+    console.error(chalk.red('Not authenticated. Run'), chalk.cyan('bagdock login'), chalk.red('or set BAGDOCK_API_KEY.'))
     process.exit(1)
   }
-  return creds
+  return token
 }
 
 function requireConfig() {
@@ -27,12 +28,12 @@ function requireConfig() {
 }
 
 export async function envList() {
-  const creds = requireAuth()
+  const token = requireAuth()
   const config = requireConfig()
 
   try {
     const res = await fetch(`${API_BASE}/v1/developer/apps/${config.slug}/env`, {
-      headers: { Authorization: `Bearer ${creds.accessToken}` },
+      headers: { Authorization: `Bearer ${token}` },
     })
 
     if (!res.ok) {
@@ -60,7 +61,7 @@ export async function envList() {
 }
 
 export async function envSet(key: string, value: string) {
-  const creds = requireAuth()
+  const token = requireAuth()
   const config = requireConfig()
 
   try {
@@ -68,7 +69,7 @@ export async function envSet(key: string, value: string) {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${creds.accessToken}`,
+        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({ key, value }),
     })
@@ -87,13 +88,13 @@ export async function envSet(key: string, value: string) {
 }
 
 export async function envRemove(key: string) {
-  const creds = requireAuth()
+  const token = requireAuth()
   const config = requireConfig()
 
   try {
     const res = await fetch(`${API_BASE}/v1/developer/apps/${config.slug}/env/${key}`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${creds.accessToken}` },
+      headers: { Authorization: `Bearer ${token}` },
     })
 
     if (!res.ok) {
