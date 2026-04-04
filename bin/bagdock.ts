@@ -22,23 +22,26 @@
  */
 
 import { Command } from 'commander'
-import { login, logout, whoami, setApiKeyOverride } from '../src/auth'
+import { login, logout, whoami, setApiKeyOverride, authList, authSwitch } from '../src/auth'
 import { init } from '../src/init'
 import { setOutputMode } from '../src/output'
+import { setProfileOverride } from '../src/config'
 
 const program = new Command()
 
 program
   .name('bagdock')
-  .description('Bagdock developer CLI')
-  .version('0.1.4')
+  .description('Bagdock developer CLI — built for humans, AI agents, and CI/CD pipelines')
+  .version('0.3.0')
   .option('--json', 'Force JSON output (auto-enabled in non-TTY)')
   .option('-q, --quiet', 'Suppress status messages (implies --json)')
   .option('--api-key <key>', 'API key to use for this invocation')
+  .option('-p, --profile <name>', 'Profile to use (overrides BAGDOCK_PROFILE)')
   .hook('preAction', (_thisCommand, actionCommand) => {
     const opts = program.opts()
     setOutputMode({ json: opts.json, quiet: opts.quiet })
     if (opts.apiKey) setApiKeyOverride(opts.apiKey)
+    if (opts.profile) setProfileOverride(opts.profile)
   })
 
 // ---------- Auth ----------
@@ -57,6 +60,32 @@ program
   .command('whoami')
   .description('Show current authenticated user')
   .action(whoami)
+
+// ---------- Auth (profiles) ----------
+
+const authCmd = program
+  .command('auth')
+  .description('Manage authentication profiles')
+
+authCmd
+  .command('list')
+  .description('List all stored profiles')
+  .action(authList)
+
+authCmd
+  .command('switch [name]')
+  .description('Switch active profile')
+  .action(async (name?: string) => authSwitch(name))
+
+// ---------- Doctor ----------
+
+program
+  .command('doctor')
+  .description('Run environment diagnostics')
+  .action(async () => {
+    const { doctor } = await import('../src/doctor')
+    await doctor()
+  })
 
 // ---------- Scaffold ----------
 

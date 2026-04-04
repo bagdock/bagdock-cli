@@ -33,7 +33,7 @@ The CLI resolves credentials in this order:
 1. `--api-key <key>` flag (highest priority)
 2. `BAGDOCK_API_KEY` environment variable
 3. `BAGDOCK_TOKEN` environment variable (M2M JWT)
-4. `~/.bagdock/credentials.json` (from `bagdock login`)
+4. `~/.bagdock/credentials.json` — active profile or `--profile` override (from `bagdock login`)
 
 For CI/CD, set `BAGDOCK_API_KEY` in your environment. For interactive use, run `bagdock login`.
 
@@ -44,6 +44,7 @@ For CI/CD, set `BAGDOCK_API_KEY` in your environment. For interactive use, run `
 | `--json` | Force JSON output (auto in non-TTY) |
 | `-q, --quiet` | Suppress status messages (implies `--json`) |
 | `--api-key <key>` | Override auth for this invocation |
+| `-p, --profile <name>` | Use a named profile (overrides `BAGDOCK_PROFILE`) |
 | `-V, --version` | Print version |
 | `-h, --help` | Print help |
 
@@ -64,6 +65,13 @@ For CI/CD, set `BAGDOCK_API_KEY` in your environment. For interactive use, run `
 | `keys create` | Create a new API key (raw key shown once) |
 | `keys list` | List API keys |
 | `keys delete <id>` | Revoke an API key |
+| `doctor` | Run environment diagnostics (version, auth, config, agents) |
+| `auth list` | List stored profiles |
+| `auth switch [name]` | Switch active profile |
+| `apps list` | List deployed applications |
+| `apps get <slug>` | Show details for an application |
+| `logs list` | List recent execution logs |
+| `logs tail` | Tail live logs |
 
 ## Common Patterns
 

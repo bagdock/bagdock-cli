@@ -1,6 +1,6 @@
 {
   "skill": "bagdock-cli",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "evals": [
     {
       "id": "login-flow",
@@ -98,6 +98,55 @@
       "input": "Get all my API keys in a script-friendly format",
       "expected_commands": ["bagdock keys list --json"],
       "expected_behavior": "Outputs JSON array of keys to stdout"
+    },
+    {
+      "id": "doctor-check",
+      "description": "Agent should run diagnostics to verify environment",
+      "input": "Check if my Bagdock setup is working correctly",
+      "expected_commands": ["bagdock doctor"],
+      "expected_behavior": "Runs version, auth, config, and AI agent checks"
+    },
+    {
+      "id": "doctor-json",
+      "description": "Agent should run diagnostics in JSON mode",
+      "input": "Get diagnostics as JSON to check my environment",
+      "expected_commands": ["bagdock doctor --json"],
+      "expected_behavior": "Returns { ok: boolean, checks: [...] } JSON to stdout"
+    },
+    {
+      "id": "profile-switch",
+      "description": "Agent should switch between operator profiles",
+      "input": "Switch to my production profile",
+      "expected_commands": ["bagdock auth switch production"],
+      "expected_behavior": "Switches active profile to 'production'"
+    },
+    {
+      "id": "profile-list",
+      "description": "Agent should list available profiles",
+      "input": "What Bagdock profiles do I have?",
+      "expected_commands": ["bagdock auth list --json"],
+      "expected_behavior": "Lists all stored profiles with email and active status"
+    },
+    {
+      "id": "profile-flag",
+      "description": "Agent should use --profile flag for one-off commands",
+      "input": "Deploy to production using my prod profile",
+      "expected_commands": ["bagdock --profile prod deploy --production --yes"],
+      "expected_behavior": "Uses prod profile credentials for this deployment only"
+    },
+    {
+      "id": "logs-tail",
+      "description": "Agent should tail live logs for debugging",
+      "input": "Show me the live logs for my smart-entry adapter",
+      "expected_commands": ["bagdock logs tail --app smart-entry"],
+      "expected_behavior": "Streams live execution logs for the specified app"
+    },
+    {
+      "id": "apps-list",
+      "description": "Agent should list deployed applications",
+      "input": "What apps do I have deployed?",
+      "expected_commands": ["bagdock apps list --json"],
+      "expected_behavior": "Lists all deployed apps with slugs, types, and status"
     }
   ]
 }
