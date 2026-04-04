@@ -1,0 +1,103 @@
+{
+  "skill": "bagdock-cli",
+  "version": "0.2.0",
+  "evals": [
+    {
+      "id": "login-flow",
+      "description": "Agent should authenticate using bagdock login",
+      "input": "Log me into Bagdock",
+      "expected_commands": ["bagdock login"],
+      "expected_behavior": "Opens browser for OAuth device flow, waits for approval"
+    },
+    {
+      "id": "create-api-key",
+      "description": "Agent should create an API key with proper flags",
+      "input": "Create a live API key named 'CI Deploy' for my GitHub Actions",
+      "expected_commands": ["bagdock keys create --name \"CI Deploy\" --environment live --json"],
+      "expected_behavior": "Creates key, captures raw key from JSON output for use in CI"
+    },
+    {
+      "id": "create-test-key",
+      "description": "Agent should create a test environment key",
+      "input": "I need a test API key with read-only access to units and contacts",
+      "expected_commands": ["bagdock keys create --name \"Test Read-Only\" --environment test --category restricted --scopes units:read contacts:read --json"],
+      "expected_behavior": "Creates restricted test key with specified scopes"
+    },
+    {
+      "id": "list-keys",
+      "description": "Agent should list API keys",
+      "input": "Show me all my live API keys",
+      "expected_commands": ["bagdock keys list --environment live"],
+      "expected_behavior": "Lists all active live-environment API keys"
+    },
+    {
+      "id": "revoke-key",
+      "description": "Agent should revoke an API key with confirmation",
+      "input": "Delete the API key ak_abc123, it was compromised",
+      "expected_commands": ["bagdock keys delete ak_abc123 --yes --reason \"Key compromised\""],
+      "expected_behavior": "Revokes the specified key immediately"
+    },
+    {
+      "id": "deploy-staging",
+      "description": "Agent should deploy to staging",
+      "input": "Deploy my adapter to staging",
+      "expected_commands": ["bagdock deploy"],
+      "expected_behavior": "Builds and deploys to staging environment"
+    },
+    {
+      "id": "deploy-production",
+      "description": "Agent should deploy to production with confirmation",
+      "input": "Push this to production",
+      "expected_commands": ["bagdock deploy --production --yes"],
+      "expected_behavior": "Deploys to production, skipping prompt since agent is non-TTY"
+    },
+    {
+      "id": "deploy-preview",
+      "description": "Agent should deploy a preview",
+      "input": "Create a preview deployment for this PR",
+      "expected_commands": ["bagdock deploy --preview --json"],
+      "expected_behavior": "Creates ephemeral preview URL, outputs JSON with URL"
+    },
+    {
+      "id": "set-env-var",
+      "description": "Agent should set an environment variable",
+      "input": "Set the VENDOR_API_KEY to sk_live_abc123 for my adapter",
+      "expected_commands": ["bagdock env set VENDOR_API_KEY sk_live_abc123"],
+      "expected_behavior": "Sets the variable, notes it takes effect on next deploy"
+    },
+    {
+      "id": "init-edge-adapter",
+      "description": "Agent should scaffold a new edge adapter project",
+      "input": "Create a new access control adapter called smart-entry",
+      "expected_commands": ["bagdock init --type edge --kind adapter --category access_control --slug smart-entry --name \"Smart Entry\""],
+      "expected_behavior": "Scaffolds project with bagdock.json and starter files"
+    },
+    {
+      "id": "ci-cd-pipeline",
+      "description": "Agent should set up a CI/CD pipeline using API key",
+      "input": "Set up GitHub Actions to deploy my adapter on push to main",
+      "expected_behavior": "Creates workflow that uses BAGDOCK_API_KEY secret, runs bagdock deploy --production --yes --json"
+    },
+    {
+      "id": "whoami-check",
+      "description": "Agent should check authentication status",
+      "input": "Am I logged into Bagdock?",
+      "expected_commands": ["bagdock whoami"],
+      "expected_behavior": "Shows current user email and operator ID"
+    },
+    {
+      "id": "submit-for-review",
+      "description": "Agent should submit app for marketplace review",
+      "input": "Submit my public adapter for review so I can deploy to production",
+      "expected_commands": ["bagdock submit"],
+      "expected_behavior": "Transitions review_status from draft to submitted"
+    },
+    {
+      "id": "non-tty-detection",
+      "description": "Agent should use --json flag in non-interactive mode",
+      "input": "Get all my API keys in a script-friendly format",
+      "expected_commands": ["bagdock keys list --json"],
+      "expected_behavior": "Outputs JSON array of keys to stdout"
+    }
+  ]
+}
