@@ -13,13 +13,8 @@ let forceJson = false
 let quiet = false
 
 export function setOutputMode(opts: { json?: boolean; quiet?: boolean }) {
-  if (opts.quiet) {
-    quiet = true
-    forceJson = true
-  }
-  if (opts.json) {
-    forceJson = true
-  }
+  quiet = !!opts.quiet
+  forceJson = !!opts.json || !!opts.quiet
 }
 
 export function isJsonMode(): boolean {

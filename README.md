@@ -1,8 +1,22 @@
 # @bagdock/cli
 
-Developer CLI for building, testing, and deploying apps and edges on the Bagdock platform.
+The official CLI for Bagdock. Built for humans, AI agents, and CI/CD pipelines.
 
 ## Install
+
+### cURL (macOS / Linux)
+
+```bash
+curl -fsSL https://bdok.dev/install.sh | bash
+```
+
+### PowerShell (Windows)
+
+```powershell
+irm https://bdok.dev/install.ps1 | iex
+```
+
+### Node.js
 
 ```bash
 # npm
@@ -26,11 +40,84 @@ bunx @bagdock/cli --help
 pnpm dlx @bagdock/cli --help
 ```
 
+### Agent skills
+
+This CLI ships with an agent skill that teaches AI coding agents (Cursor, Claude Code, Windsurf, etc.) how to use the Bagdock CLI effectively — including non-interactive flags, output formats, and common pitfalls.
+
+```bash
+npx skills add bagdock/bagdock-skills
+```
+
+## Local development
+
+Use this when you want to change the CLI and run your build locally.
+
+### Prerequisites
+
+- Node.js 20+
+- Bun (for building)
+
+### Setup
+
+Clone the repo:
+
+```bash
+git clone https://github.com/bagdock/bagdock-cli.git
+cd bagdock-cli
+```
+
+Install dependencies:
+
+```bash
+bun install
+```
+
+Build locally:
+
+```bash
+bun run build
+```
+
+Output: `./dist/bagdock.js`
+
+### Running the CLI locally
+
+Use the dev script:
+
+```bash
+bun run dev -- --version
+bun run dev -- doctor
+bun run dev -- keys list --json
+```
+
+Or run the built JS bundle:
+
+```bash
+node dist/bagdock.js --version
+```
+
+### Making changes
+
+After editing source files, rebuild:
+
+```bash
+bun run build
+```
+
+### Running tests
+
+```bash
+bun run test
+```
+
 ## Quick start
 
 ```bash
-# Authenticate with your Bagdock account
+# Authenticate
 bagdock login
+
+# Check your environment
+bagdock doctor
 
 # Scaffold a new project
 bagdock init
@@ -50,93 +137,457 @@ bagdock deploy
 
 Both deploy to the Bagdock platform via the CLI. You don't need to manage any infrastructure.
 
+## Authentication
+
+The CLI resolves your API key using the following priority chain:
+
+| Priority | Source | How to set |
+|----------|--------|-----------|
+| 1 (highest) | `--api-key` flag | `bagdock --api-key sk_live_xxx deploy ...` |
+| 2 | `BAGDOCK_API_KEY` env var | `export BAGDOCK_API_KEY=sk_live_xxx` |
+| 3 | `BAGDOCK_TOKEN` env var | `export BAGDOCK_TOKEN=<jwt>` |
+| 4 (lowest) | Config file | `bagdock login` |
+
+If no key is found from any source, the CLI errors with code `auth_error`.
+
 ## Commands
 
-### Auth
+### `bagdock login`
 
-| Command | Description |
-|---------|-------------|
-| `bagdock login` | Authenticate via Device Authorization Grant (opens browser) |
-| `bagdock logout` | Clear stored credentials |
-| `bagdock whoami` | Show current authenticated user |
+Authenticate by starting an OAuth 2.0 Device Authorization Grant flow. The CLI opens your browser to the Bagdock dashboard where you approve access.
 
-### Development
+#### Interactive mode (default in terminals)
 
-| Command | Description |
-|---------|-------------|
-| `bagdock init` | Scaffold a new project with `bagdock.json` |
-| `bagdock dev` | Start local dev server |
-| `bagdock deploy` | Build and deploy to Bagdock |
-| `bagdock submit` | Submit for marketplace review |
+When run in a terminal, the CLI:
 
-### Environment Variables
+1. Requests a device code from the API
+2. Displays a one-time code and opens your browser
+3. Waits for you to enter the code and approve
+4. Stores credentials at `~/.bagdock/credentials.json`
 
-| Command | Description |
-|---------|-------------|
-| `bagdock env list` | List environment variables for this app |
-| `bagdock env set <key> <value>` | Set an environment variable |
-| `bagdock env remove <key>` | Remove an environment variable |
+#### Non-interactive mode (CI, pipes, scripts)
 
-### API Keys
+For headless environments, use an API key instead of interactive login:
 
-| Command | Description |
-|---------|-------------|
-| `bagdock keys create` | Create a new API key (raw key shown once) |
-| `bagdock keys list` | List API keys (prefix + metadata only) |
-| `bagdock keys delete <id>` | Revoke an API key |
+```bash
+export BAGDOCK_API_KEY=sk_live_xxx
+bagdock deploy --production --yes
+```
 
-### Apps & Logs
+#### Output
 
-| Command | Description |
-|---------|-------------|
-| `bagdock apps list` | List deployed apps and edges |
-| `bagdock apps get <slug>` | Get details for a specific app |
-| `bagdock logs list` | List recent execution log entries |
-| `bagdock logs tail` | Stream logs in real-time |
+```bash
+# JSON output
+bagdock login --json
+# => {"success":true,"config_path":"/Users/you/.bagdock/credentials.json","profile":"default"}
+```
 
-## Global flags
+#### Error codes
+
+| Code | Cause |
+|------|-------|
+| `auth_error` | Device code request failed |
+| `expired_token` | Device code expired before approval |
+| `access_denied` | User denied authorization |
+
+---
+
+### `bagdock logout`
+
+Clear stored credentials for the active profile.
+
+```bash
+bagdock logout
+```
+
+---
+
+### `bagdock whoami`
+
+Show the current authenticated user.
+
+```bash
+bagdock whoami
+# => Logged in as you@example.com
+#    Operator: op_abc123
+#    Profile: default
+```
+
+JSON output:
+
+```bash
+bagdock whoami --json
+# => {"email":"you@example.com","operator_id":"op_abc123","profile":"default"}
+```
+
+---
+
+### `bagdock doctor`
+
+Run environment diagnostics. Verifies your CLI version, API key, project config, and detects AI agent integrations.
+
+```bash
+bagdock doctor
+```
+
+#### Checks performed
+
+| Check | Pass | Warn | Fail |
+|-------|------|------|------|
+| CLI Version | Running latest | Update available or registry unreachable | — |
+| API Key | Key found (shows masked key + source) | — | No key found |
+| Project Config | Valid `bagdock.json` found | No config or incomplete | — |
+| AI Agents | Lists detected agents (or none) | — | — |
+
+The API key is always masked in output (e.g. `sk_live_...xxxx`).
+
+#### Interactive mode
+
+Shows status icons with colored output:
+
+```
+  Bagdock Doctor
+
+  ✔ CLI Version: v0.3.0 (latest)
+  ✔ API Key: sk_live_...xxxx (source: env)
+  ✔ Project Config: smart-entry (edge/adapter)
+  ✔ AI Agents: Detected: Cursor, Claude Desktop
+```
+
+#### JSON mode
+
+```bash
+bagdock doctor --json
+```
+
+```json
+{
+  "ok": true,
+  "checks": [
+    { "name": "CLI Version", "status": "pass", "message": "v0.3.0 (latest)" },
+    { "name": "API Key", "status": "pass", "message": "sk_live_...xxxx (source: env)" },
+    { "name": "Project Config", "status": "pass", "message": "smart-entry (edge/adapter)" },
+    { "name": "AI Agents", "status": "pass", "message": "Detected: Cursor" }
+  ]
+}
+```
+
+Each check has a `status` of `pass`, `warn`, or `fail`. The top-level `ok` is `false` if any check is `fail`.
+
+#### Detected AI agents
+
+| Agent | Detection method |
+|-------|-----------------|
+| Cursor | `~/.cursor` directory exists |
+| Claude Desktop | Platform-specific config file exists |
+| VS Code | `.vscode/mcp.json` in current directory |
+| Windsurf | `~/.windsurf` directory exists |
+| OpenClaw/Codex | `~/clawd/skills` or `~/.codex` directory exists |
+
+#### Exit code
+
+Exits `0` when all checks pass or warn. Exits `1` if any check fails.
+
+---
+
+### Switch between profiles
+
+If you work across multiple Bagdock operators, the CLI supports named profiles.
+
+#### List profiles
+
+```bash
+bagdock auth list
+```
+
+#### Switch active profile
+
+```bash
+bagdock auth switch production
+```
+
+You can also use the global `--profile` (or `-p`) flag on any command to run it with a specific profile:
+
+```bash
+bagdock --profile production deploy --yes
+bagdock -p staging keys list
+```
+
+---
+
+### `bagdock init [dir]`
+
+Scaffold a new project with a `bagdock.json` config file.
 
 | Flag | Description |
 |------|-------------|
-| `--json` | Force JSON output (auto-enabled in non-TTY) |
-| `-q, --quiet` | Suppress status messages (implies `--json`) |
-| `--api-key <key>` | Override auth for this invocation |
-| `-V, --version` | Print version |
-| `-h, --help` | Print help |
+| `--type <edge\|app>` | Deployment target |
+| `--kind <adapter\|comms\|webhook\|ui-extension\|microfrontend>` | Specific project kind |
+| `--category <name>` | Marketplace category |
+| `--slug <name>` | Unique project slug (kebab-case) |
+| `--name <name>` | Display name |
 
-## Authentication
-
-The CLI resolves credentials in this order:
-
-1. `--api-key <key>` flag (highest priority)
-2. `BAGDOCK_API_KEY` environment variable
-3. `BAGDOCK_TOKEN` environment variable (M2M JWT)
-4. `~/.bagdock/credentials.json` (from `bagdock login`)
-
-### Interactive login
-
-When you run `bagdock login`, the CLI uses the OAuth 2.0 Device Authorization Grant:
-
-1. Displays a one-time code
-2. Opens your browser to the Bagdock dashboard
-3. Asks you to enter the code and approve access
-4. Stores credentials locally at `~/.bagdock/credentials.json`
-
-### CI/CD
-
-For non-interactive environments, create an API key and set it as an environment variable:
+#### Examples
 
 ```bash
-# Create a key for CI
-bagdock keys create --name "GitHub Actions" --environment live --json
+# Interactive scaffolding
+bagdock init
 
-# Use it in your pipeline
-BAGDOCK_API_KEY=sk_live_xxx bagdock deploy --production --yes
+# Non-interactive
+bagdock init --type edge --kind adapter --category access_control --slug smart-entry --name "Smart Entry"
 ```
 
-## API Keys
+---
 
-API keys follow the Stripe-style prefix convention:
+### `bagdock deploy`
+
+Build and deploy to the Bagdock platform.
+
+| Flag | Description |
+|------|-------------|
+| `--production` | Deploy to production (default: staging) |
+| `--preview` | Create an ephemeral preview deployment |
+| `--yes` | Skip confirmation prompts (required in non-TTY) |
+
+#### Examples
+
+```bash
+# Deploy to staging
+bagdock deploy
+
+# Deploy to production
+bagdock deploy --production --yes
+
+# Preview deployment
+bagdock deploy --preview --json
+```
+
+#### Error codes
+
+| Code | Cause |
+|------|-------|
+| `auth_error` | Not authenticated |
+| `no_config` | No `bagdock.json` found |
+| `build_error` | Build failed |
+| `deploy_error` | API rejected the deployment |
+
+---
+
+### `bagdock submit`
+
+Submit your app for marketplace review. Transitions `review_status` from `draft` to `submitted`.
+
+```bash
+bagdock submit
+```
+
+---
+
+### `bagdock env list`
+
+List environment variables for the current app.
+
+```bash
+bagdock env list
+bagdock env list --json
+```
+
+### `bagdock env set <key> <value>`
+
+Set an environment variable. Takes effect on next deploy.
+
+```bash
+bagdock env set VENDOR_API_KEY sk_live_abc123
+```
+
+### `bagdock env remove <key>`
+
+Remove an environment variable.
+
+```bash
+bagdock env remove VENDOR_API_KEY
+```
+
+---
+
+### `bagdock keys create`
+
+Create a new API key. The raw key is shown **once** on creation.
+
+| Flag | Required | Description |
+|------|----------|-------------|
+| `--name <name>` | Yes | Display name for the key |
+| `--environment <live\|test>` | No | Environment (default: `live`) |
+| `--type <secret\|publishable>` | No | Key type (default: `secret`) |
+| `--category <full_access\|restricted>` | No | Access level (default: `full_access`) |
+| `--scopes <scope...>` | No | Permission scopes (for restricted keys) |
+
+#### Examples
+
+```bash
+# Create a live secret key
+bagdock keys create --name "GitHub Actions" --environment live
+
+# Create a restricted test key
+bagdock keys create --name "Read-Only" --environment test --category restricted --scopes units:read contacts:read
+
+# JSON output (capture the raw key)
+bagdock keys create --name "CI Deploy" --json
+```
+
+#### Output
+
+```json
+{
+  "id": "ak_abc123",
+  "name": "CI Deploy",
+  "key": "sk_live_abc123def456...",
+  "key_prefix": "sk_live_abc123de",
+  "environment": "live",
+  "key_type": "secret",
+  "created_at": "2026-04-04T12:00:00Z"
+}
+```
+
+### `bagdock keys list`
+
+List API keys (prefix and metadata only — raw keys are never stored).
+
+| Flag | Description |
+|------|-------------|
+| `--environment <live\|test>` | Filter by environment |
+
+```bash
+bagdock keys list
+bagdock keys list --environment live --json
+```
+
+### `bagdock keys delete <id>`
+
+Revoke an API key permanently.
+
+| Flag | Description |
+|------|-------------|
+| `--yes` | Skip confirmation (required in non-TTY) |
+| `--reason <text>` | Reason for revocation (optional, recorded) |
+
+```bash
+bagdock keys delete ak_abc123 --yes --reason "Key compromised"
+```
+
+#### Error codes
+
+| Code | Cause |
+|------|-------|
+| `auth_error` | Not authenticated |
+| `not_found` | Key ID does not exist |
+| `forbidden` | Insufficient permissions |
+
+---
+
+### `bagdock apps list`
+
+List deployed apps and edges.
+
+```bash
+bagdock apps list
+bagdock apps list --json
+```
+
+### `bagdock apps get <slug>`
+
+Get details for a specific deployed app.
+
+```bash
+bagdock apps get smart-entry
+bagdock apps get smart-entry --json
+```
+
+---
+
+### `bagdock logs list`
+
+List recent execution log entries.
+
+| Flag | Description |
+|------|-------------|
+| `--app <slug>` | Filter by app slug |
+| `--limit <n>` | Number of entries (default: 50, max: 200) |
+
+```bash
+bagdock logs list --app smart-entry --limit 20
+```
+
+### `bagdock logs tail`
+
+Stream logs in real-time.
+
+| Flag | Description |
+|------|-------------|
+| `--app <slug>` | App to stream logs for |
+
+```bash
+bagdock logs tail --app smart-entry
+```
+
+### `bagdock logs get <id>`
+
+Get a single log entry by ID.
+
+| Flag | Description |
+|------|-------------|
+| `--app <slug>` | App the log belongs to |
+
+```bash
+bagdock logs get log_abc123 --app smart-entry
+```
+
+---
+
+## Global options
+
+These flags work on every command and are passed before the subcommand:
+
+```
+bagdock [global options] <command> [command options]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--api-key <key>` | Override API key for this invocation (takes highest priority) |
+| `-p, --profile <name>` | Profile to use (overrides `BAGDOCK_PROFILE` env var) |
+| `--json` | Force JSON output even in interactive terminals |
+| `-q, --quiet` | Suppress spinners and status output (implies `--json`) |
+| `--version` | Print version and exit |
+| `--help` | Show help text |
+
+## Output behavior
+
+The CLI has two output modes:
+
+| Mode | When | Stdout | Stderr |
+|------|------|--------|--------|
+| Interactive | Terminal (TTY) | Formatted text | Spinners, prompts |
+| Machine | Piped, CI, or `--json` | JSON | Nothing |
+
+Switching is automatic — pipe to another command and JSON output activates:
+
+```bash
+bagdock doctor | jq '.checks[].name'
+bagdock keys list | jq '.[].key_prefix'
+```
+
+### Error output
+
+Errors always exit with code `1` and output structured JSON to stdout:
+
+```json
+{ "error": { "code": "auth_error", "message": "No API key found" } }
+```
+
+## API keys
+
+API keys follow a Stripe-style prefix convention:
 
 | Prefix | Meaning |
 |--------|---------|
@@ -149,11 +600,42 @@ API keys follow the Stripe-style prefix convention:
 
 The raw key is shown **once** on creation. Only the prefix and metadata are stored and displayed after that.
 
+## Agent & CI/CD usage
+
+### CI/CD
+
+Set `BAGDOCK_API_KEY` as an environment variable — no `bagdock login` needed:
+
+```yaml
+# GitHub Actions
+env:
+  BAGDOCK_API_KEY: ${{ secrets.BAGDOCK_API_KEY }}
+steps:
+  - run: |
+      bagdock deploy --production --yes --json
+```
+
+### AI agents
+
+Agents calling the CLI as a subprocess automatically get JSON output (non-TTY detection). The contract:
+
+- **Input**: All required flags must be provided (no interactive prompts)
+- **Output**: JSON to stdout, nothing to stderr
+- **Exit code**: `0` success, `1` error
+- **Errors**: Always include `message` and `code` fields
+
 ## Configuration
 
-Each project uses a `bagdock.json` file. All config lives here — no `wrangler.toml` needed. A temporary one is auto-generated for local dev and should be gitignored.
+| Item | Path | Notes |
+|------|------|-------|
+| Config directory | `~/.bagdock/` | Respects `BAGDOCK_INSTALL` |
+| Credentials | `~/.bagdock/credentials.json` | `0600` permissions (owner read/write) |
+| Active profile | Stored in credentials file | Overridden by `--profile` or `BAGDOCK_PROFILE` |
+| Project config | `./bagdock.json` | Per-project, in repo root |
 
-### Edge example
+### bagdock.json examples
+
+#### Edge (backend worker)
 
 ```json
 {
@@ -166,7 +648,7 @@ Each project uses a `bagdock.json` file. All config lives here — no `wrangler.
 }
 ```
 
-### App example
+#### App (UI extension)
 
 ```json
 {
@@ -178,21 +660,6 @@ Each project uses a `bagdock.json` file. All config lives here — no `wrangler.
   "main": "src/index.ts"
 }
 ```
-
-## Agent protocol
-
-When piped or run in non-TTY environments (CI/CD, AI agents), the CLI automatically outputs JSON to stdout and errors to stderr. Use `--json` to force this in interactive mode.
-
-```bash
-# Structured JSON output for scripting
-bagdock keys list --json
-bagdock apps list --quiet
-
-# Structured errors go to stderr
-bagdock deploy --production --yes 2>errors.json
-```
-
-Exit codes: `0` = success, `1` = error.
 
 ## License
 
