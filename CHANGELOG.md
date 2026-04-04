@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] - 2026-04-05
+
+### Added
+
+- `bagdock validate` — local pre-submission checks on bagdock.json and bundle
+- `bagdock submission list` — list marketplace submission history
+- `bagdock submission status <id>` — fetch detailed review state
+- `bagdock submission withdraw <id>` — cancel pending submissions
+- `bagdock open [slug]` — open project in Bagdock dashboard
+- `bagdock inspect [slug]` — show deployment details and status
+- `bagdock env pull [file]` — pull remote env var keys to local .env
+- `bagdock link` — link directory to a Bagdock app or edge
+- Homebrew install via `brew install bagdock/cli/bagdock`
+- Dedicated skills repo at `bagdock/bagdock-skills` with Cursor, Claude Code, Codex, and Conductor plugins
+- New reference docs: `references/marketplace.md`, `references/app-management.md`
+- Linked app resolution — commands now check `.bagdock/link.json` as slug fallback
+
+### Changed
+
+- Version bumped to 0.4.0
+
 ## [0.3.0] - 2026-04-04
 
 ### Added
@@ -70,6 +91,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `bagdock env list|set|remove` — environment variable management
 - MIT License
 
+[0.4.0]: https://github.com/bagdock/bagdock-cli/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/bagdock/bagdock-cli/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/bagdock/bagdock-cli/compare/v0.1.4...v0.2.0
 [0.1.4]: https://github.com/bagdock/bagdock-cli/compare/v0.1.3...v0.1.4

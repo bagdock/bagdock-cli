@@ -62,9 +62,17 @@ For CI/CD, set `BAGDOCK_API_KEY` in your environment. For interactive use, run `
 | `env list` | List app environment variables |
 | `env set <key> <value>` | Set an environment variable |
 | `env remove <key>` | Remove an environment variable |
+| `env pull [file]` | Pull remote env var keys to local .env file |
 | `keys create` | Create a new API key (raw key shown once) |
 | `keys list` | List API keys |
 | `keys delete <id>` | Revoke an API key |
+| `validate` | Run local pre-submission checks on bagdock.json and bundle |
+| `submission list` | List marketplace submission history |
+| `submission status <id>` | Fetch detailed review state for a submission |
+| `submission withdraw <id>` | Cancel a pending submission |
+| `open [slug]` | Open project in Bagdock dashboard |
+| `inspect [slug]` | Show deployment details and status |
+| `link` | Link directory to a Bagdock app or edge |
 | `doctor` | Run environment diagnostics (version, auth, config, agents) |
 | `auth list` | List stored profiles |
 | `auth switch [name]` | Switch active profile |
@@ -112,6 +120,34 @@ bagdock keys list --json
 3. **Missing `bagdock.json`** — `deploy`, `submit`, and `env` commands require a `bagdock.json` in the current directory. Run `bagdock init` first.
 4. **Expired session** — If `whoami` fails, run `bagdock login` again. Sessions expire after 8 hours.
 
+### Validate before submitting
+
+```bash
+bagdock validate
+bagdock submit
+```
+
+### Check submission status
+
+```bash
+bagdock submission list --json
+bagdock submission status iadpv_xxx
+```
+
+### Link a directory and inspect
+
+```bash
+bagdock link --slug my-adapter
+bagdock inspect
+bagdock open
+```
+
+### Pull env vars for local dev
+
+```bash
+bagdock env pull .env.local
+```
+
 ## When to Load References
 
 Load specific reference files when the task involves:
@@ -121,3 +157,5 @@ Load specific reference files when the task involves:
 - **Environment variables** → `references/env.md`
 - **Local development** → `references/dev.md`
 - **Error codes or troubleshooting** → `references/error-codes.md`
+- **Marketplace submission lifecycle** → `references/marketplace.md`
+- **App management (open, inspect, link)** → `references/app-management.md`

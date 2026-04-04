@@ -1,6 +1,6 @@
 {
   "skill": "bagdock-cli",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "evals": [
     {
       "id": "login-flow",
@@ -147,6 +147,62 @@
       "input": "What apps do I have deployed?",
       "expected_commands": ["bagdock apps list --json"],
       "expected_behavior": "Lists all deployed apps with slugs, types, and status"
+    },
+    {
+      "id": "validate-before-submit",
+      "description": "Agent should validate before submitting",
+      "input": "Check if my adapter is ready to submit to the marketplace",
+      "expected_commands": ["bagdock validate --json"],
+      "expected_behavior": "Runs local checks on bagdock.json and bundle, returns pass/warn/fail"
+    },
+    {
+      "id": "submission-list",
+      "description": "Agent should list submissions",
+      "input": "Show me all my marketplace submissions for this app",
+      "expected_commands": ["bagdock submission list --json"],
+      "expected_behavior": "Lists submission history with IDs, versions, and dates"
+    },
+    {
+      "id": "submission-status",
+      "description": "Agent should check submission status",
+      "input": "What's the review status of submission iadpv_abc123?",
+      "expected_commands": ["bagdock submission status iadpv_abc123 --json"],
+      "expected_behavior": "Returns detailed review state including status, reason, and timestamps"
+    },
+    {
+      "id": "submission-withdraw",
+      "description": "Agent should withdraw a pending submission",
+      "input": "Withdraw my pending submission iadpv_abc123, I found a bug",
+      "expected_commands": ["bagdock submission withdraw iadpv_abc123"],
+      "expected_behavior": "Cancels submission, sets review_status back to draft"
+    },
+    {
+      "id": "open-dashboard",
+      "description": "Agent should open project in dashboard",
+      "input": "Open my adapter in the Bagdock dashboard",
+      "expected_commands": ["bagdock open"],
+      "expected_behavior": "Opens browser to dashboard URL for the current project"
+    },
+    {
+      "id": "inspect-app",
+      "description": "Agent should inspect app deployment details",
+      "input": "Show me the deployment details for smart-entry",
+      "expected_commands": ["bagdock inspect smart-entry --json"],
+      "expected_behavior": "Returns app details including worker URL, version, review status"
+    },
+    {
+      "id": "env-pull",
+      "description": "Agent should pull env vars for local development",
+      "input": "Pull the env var keys from my deployed adapter to a local .env file",
+      "expected_commands": ["bagdock env pull .env.local"],
+      "expected_behavior": "Creates .env.local with keys and empty values, warns that values need filling"
+    },
+    {
+      "id": "link-project",
+      "description": "Agent should link directory to a project",
+      "input": "Link this directory to my smart-entry adapter",
+      "expected_commands": ["bagdock link --slug smart-entry"],
+      "expected_behavior": "Creates .bagdock/link.json with slug, other commands use it as fallback"
     }
   ]
 }
