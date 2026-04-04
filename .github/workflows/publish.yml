@@ -1,0 +1,56 @@
+name: Publish to npm
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'bin/**'
+      - 'package.json'
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (skip npm publish)"
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build CLI
+        run: bun run build
+
+      - name: Verify dist output
+        run: |
+          test -f dist/bagdock.js || (echo "Build failed: dist/bagdock.js not found" && exit 1)
+          head -1 dist/bagdock.js | grep -q "#!/usr/bin/env node" || (echo "Missing shebang" && exit 1)
+          echo "Build OK — $(wc -c < dist/bagdock.js) bytes"
+
+      - name: Publish to npm (Trusted Publishing / OIDC)
+        if: ${{ !inputs.dry_run }}
+        run: npm publish --provenance --access public
+
+      - name: Dry run — would publish
+        if: ${{ inputs.dry_run }}
+        run: npm pack --dry-run

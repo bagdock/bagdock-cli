@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      - name: Type check
+        run: bun run typecheck
+
+      - name: Build
+        run: bun run build
+
+      - name: Verify dist output
+        run: |
+          test -f dist/bagdock.js || (echo "Build failed: dist/bagdock.js not found" && exit 1)
+          head -1 dist/bagdock.js | grep -q "#!/usr/bin/env node" || (echo "Missing shebang" && exit 1)
+          echo "Build OK — $(wc -c < dist/bagdock.js) bytes"
