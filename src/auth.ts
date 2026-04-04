@@ -49,6 +49,27 @@ export function getAuthSource(): { token: string | null; source: string } {
   return { token: null, source: 'none' }
 }
 
+let apiKeyOverride: string | undefined
+
+export function setApiKeyOverride(key: string) {
+  apiKeyOverride = key
+}
+
+/**
+ * Resolve the auth token from (in priority order):
+ *   1. --api-key flag (set via setApiKeyOverride)
+ *   2. BAGDOCK_API_KEY env var
+ *   3. BAGDOCK_TOKEN env var (M2M JWT)
+ *   4. ~/.bagdock/credentials.json
+ */
+export function getAuthToken(): string | null {
+  if (apiKeyOverride) return apiKeyOverride
+  if (process.env.BAGDOCK_API_KEY) return process.env.BAGDOCK_API_KEY
+  if (process.env.BAGDOCK_TOKEN) return process.env.BAGDOCK_TOKEN
+  const creds = loadCredentials()
+  return creds?.accessToken ?? null
+}
+
 const CLIENT_ID = 'bagdock-cli'
 const POLL_INTERVAL_MS = 5_000
 const MAX_POLL_DURATION_MS = 300_000
