@@ -44,11 +44,11 @@ bagdock deploy
 
 ## What are apps and edges?
 
-**Edges** are backend workers that connect external APIs, handle webhooks, and sync data between platforms. Examples: a Noke lock adapter, a Telnyx comms worker, a payment processor handler.
+**Edges** are backend workers that connect external APIs, handle webhooks, and sync data between platforms.
 
-**Apps** are UI extensions that add screens, panels, or drawers to the Bagdock operator dashboard — similar to HubSpot CRM cards or Shopify App Bridge extensions.
+**Apps** are UI extensions that add screens, panels, and drawers to the Bagdock operator dashboard.
 
-Both deploy to Cloudflare Workers for Platforms via the Bagdock API. You never need Cloudflare credentials.
+Both deploy to the Bagdock platform via the CLI. You don't need to manage any infrastructure.
 
 ## Commands
 
