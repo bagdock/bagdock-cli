@@ -5,7 +5,25 @@ Developer CLI for building, testing, and deploying apps and edges on the Bagdock
 ## Install
 
 ```bash
+# npm
 npm install -g @bagdock/cli
+
+# yarn
+yarn global add @bagdock/cli
+
+# pnpm
+pnpm add -g @bagdock/cli
+
+# bun
+bun add -g @bagdock/cli
+```
+
+Or run without installing:
+
+```bash
+npx @bagdock/cli --help
+bunx @bagdock/cli --help
+pnpm dlx @bagdock/cli --help
 ```
 
 ## Quick start
@@ -87,4 +105,4 @@ Each project uses a `bagdock.json` file. All config lives here — no `wrangler.
 
 ## License
 
-Proprietary — Copyright Bagdock Ltd.
+MIT — see [LICENSE](LICENSE).
