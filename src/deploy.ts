@@ -8,9 +8,9 @@
  *   4. The API enforces governance and uploads to CF Workers for Platforms
  *
  * Environments & URL scheme:
- *   preview:    {slug}-{hash}.pre.bdok.sh  (ephemeral, per-deploy)
- *   staging:    {slug}.pre.bdok.sh         (stable pre-production)
- *   production: {slug}.bdok.sh             (requires review for public integrations)
+ *   preview:    {slug}-{hash}.pre.bdok.dev  (ephemeral, per-deploy)
+ *   staging:    {slug}.pre.bdok.dev         (stable pre-production)
+ *   production: {slug}.bdok.dev             (requires review for public integrations)
  */
 
 import { existsSync, readFileSync } from 'fs'

@@ -69,8 +69,8 @@ program
   .command('deploy')
   .description('Build locally and deploy via Bagdock API → CF Workers for Platforms')
   .option('--env <environment>', 'Target environment (preview, staging, production)', 'staging')
-  .option('--preview', 'Deploy an ephemeral preview ({slug}-{hash}.pre.bdok.sh)')
-  .option('--production', 'Deploy to production ({slug}.bdok.sh)')
+  .option('--preview', 'Deploy an ephemeral preview ({slug}-{hash}.pre.bdok.dev)')
+  .option('--production', 'Deploy to production ({slug}.bdok.dev)')
   .option('-y, --yes', 'Skip confirmation prompts')
   .action(async (opts) => {
     const { deploy } = await import('../src/deploy')
