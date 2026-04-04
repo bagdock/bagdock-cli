@@ -4,9 +4,10 @@
  * Checks: CLI version, auth status, project config, AI agent detection.
  */
 
-import { existsSync } from 'fs'
-import { join } from 'path'
+import { existsSync, readFileSync } from 'fs'
+import { join, dirname } from 'path'
 import { homedir, platform } from 'os'
+import { fileURLToPath } from 'url'
 import chalk from 'chalk'
 import { getAuthSource } from './auth'
 import { loadBagdockJson, CONFIG_DIR } from './config'
@@ -25,9 +26,18 @@ function maskKey(key: string): string {
   return key.slice(0, 8) + '...' + key.slice(-4)
 }
 
+function getLocalVersion(): string {
+  try {
+    const pkgPath = join(dirname(fileURLToPath(import.meta.url)), '..', 'package.json')
+    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8'))
+    return pkg.version ?? 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
 async function checkVersion(): Promise<Check> {
-  const pkg = await import('../../package.json', { with: { type: 'json' } }).catch(() => null)
-  const local = (pkg as any)?.default?.version ?? 'unknown'
+  const local = getLocalVersion()
 
   try {
     const res = await fetch('https://registry.npmjs.org/@bagdock/cli/latest', {
