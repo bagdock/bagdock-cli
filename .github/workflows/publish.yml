@@ -49,7 +49,7 @@ jobs:
 
       - name: Publish to npm
         if: ${{ !inputs.dry_run }}
-        run: npm publish
+        run: npm publish --provenance --access public
 
       - name: Dry run — would publish
         if: ${{ inputs.dry_run }}
