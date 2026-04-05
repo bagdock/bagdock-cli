@@ -9,15 +9,19 @@
 import chalk from 'chalk'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 import { join } from 'path'
-import { loadBagdockJson, API_BASE } from './config'
+import { loadBagdockJson } from './config'
 import { getAuthToken } from './auth'
+import { apiFetch } from './api'
 import { isJsonMode, outputSuccess, outputError, status } from './output'
 
 const LINK_DIR = '.bagdock'
 const LINK_FILE = 'link.json'
 
+import type { BagdockEnvironment } from './config'
+
 interface LinkData {
   slug: string
+  environment?: BagdockEnvironment
   linkedAt: string
 }
 
@@ -37,6 +41,8 @@ export function resolveSlug(): string | null {
   return null
 }
 
+// resolveLinkEnvironment lives in config.ts to avoid circular deps with api.ts
+
 export function requireSlug(slugArg?: string): string {
   const slug = slugArg ?? resolveSlug()
   if (!slug) {
@@ -49,8 +55,9 @@ export function requireSlug(slugArg?: string): string {
   return slug
 }
 
-export async function link(opts: { slug?: string }) {
+export async function link(opts: { slug?: string; env?: string }) {
   let slug = opts.slug
+  const linkEnv = (opts.env === 'test' || opts.env === 'live') ? opts.env as BagdockEnvironment : undefined
 
   if (!slug) {
     const config = loadBagdockJson(process.cwd())
@@ -69,9 +76,7 @@ export async function link(opts: { slug?: string }) {
 
     status('Fetching your apps...')
     try {
-      const res = await fetch(`${API_BASE}/v1/developer/apps`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const res = await apiFetch('/api/v1/developer/apps')
       if (!res.ok) throw new Error(`API returned ${res.status}`)
 
       const { data } = await res.json() as { data: Array<{ slug: string; name: string }> }
@@ -109,13 +114,14 @@ export async function link(opts: { slug?: string }) {
   const dir = join(process.cwd(), LINK_DIR)
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
 
-  const linkData: LinkData = { slug, linkedAt: new Date().toISOString() }
+  const linkData: LinkData = { slug, environment: linkEnv, linkedAt: new Date().toISOString() }
   writeFileSync(join(dir, LINK_FILE), JSON.stringify(linkData, null, 2))
 
   if (isJsonMode()) {
-    outputSuccess({ slug, path: join(dir, LINK_FILE) })
+    outputSuccess({ slug, environment: linkEnv, path: join(dir, LINK_FILE) })
   } else {
-    console.log(chalk.green(`Linked to ${chalk.bold(slug)}`))
+    const envLabel = linkEnv ? ` [${linkEnv}]` : ''
+    console.log(chalk.green(`Linked to ${chalk.bold(slug)}${envLabel}`))
     console.log(chalk.dim(`  Stored in ${LINK_DIR}/${LINK_FILE}`))
   }
 }

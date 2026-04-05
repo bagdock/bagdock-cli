@@ -1,6 +1,6 @@
 {
   "skill": "bagdock-cli",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "evals": [
     {
       "id": "login-flow",
@@ -203,6 +203,48 @@
       "input": "Link this directory to my smart-entry adapter",
       "expected_commands": ["bagdock link --slug smart-entry"],
       "expected_behavior": "Creates .bagdock/link.json with slug, other commands use it as fallback"
+    },
+    {
+      "id": "switch-operator-sandbox",
+      "description": "Agent should switch to sandbox environment for testing",
+      "input": "Switch to test mode for the WiseStorage operator",
+      "expected_commands": ["bagdock switch --operator wisestorage --env test"],
+      "expected_behavior": "Updates active profile with operatorSlug=wisestorage and environment=test"
+    },
+    {
+      "id": "switch-interactive",
+      "description": "Agent should use interactive switch when operator unknown",
+      "input": "I want to switch to a different operator",
+      "expected_commands": ["bagdock switch"],
+      "expected_behavior": "Lists available operators, prompts selection, then prompts environment choice"
+    },
+    {
+      "id": "deploy-to-test",
+      "description": "Agent should deploy to sandbox environment",
+      "input": "Deploy my adapter to the sandbox for testing",
+      "expected_commands": ["bagdock --env test deploy --target staging --yes"],
+      "expected_behavior": "Deploys to staging target within the test/sandbox environment"
+    },
+    {
+      "id": "inspect-test-env",
+      "description": "Agent should inspect an app in test environment",
+      "input": "Show me the deployment details of my app in the sandbox",
+      "expected_commands": ["bagdock --env test inspect --json"],
+      "expected_behavior": "Returns app details from the sandbox tenant database"
+    },
+    {
+      "id": "link-with-env",
+      "description": "Agent should link directory with specific environment",
+      "input": "Link this directory to smart-entry in test mode",
+      "expected_commands": ["bagdock link --slug smart-entry --env test"],
+      "expected_behavior": "Creates .bagdock/link.json with slug and environment=test"
+    },
+    {
+      "id": "env-override-per-command",
+      "description": "Agent should use --env flag to override environment for a single command",
+      "input": "List apps on the live environment even though I'm currently in test mode",
+      "expected_commands": ["bagdock --env live apps list --json"],
+      "expected_behavior": "Lists apps from the live tenant database, does not change profile"
     }
   ]
 }

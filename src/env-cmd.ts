@@ -8,19 +8,10 @@
 import chalk from 'chalk'
 import { writeFileSync } from 'fs'
 import { resolve } from 'path'
-import { loadBagdockJson, API_BASE } from './config'
-import { getAuthToken } from './auth'
+import { loadBagdockJson } from './config'
+import { apiFetch, apiFetchJson } from './api'
 import { isJsonMode, outputSuccess, outputError, status as logStatus } from './output'
 import { requireSlug } from './link'
-
-function requireAuth(): string {
-  const token = getAuthToken()
-  if (!token) {
-    console.error(chalk.red('Not authenticated. Run'), chalk.cyan('bagdock login'), chalk.red('or set BAGDOCK_API_KEY.'))
-    process.exit(1)
-  }
-  return token
-}
 
 function requireConfig() {
   const config = loadBagdockJson(process.cwd())
@@ -32,13 +23,10 @@ function requireConfig() {
 }
 
 export async function envList() {
-  const token = requireAuth()
   const config = requireConfig()
 
   try {
-    const res = await fetch(`${API_BASE}/v1/developer/apps/${config.slug}/env`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const res = await apiFetch(`/api/v1/developer/apps/${config.slug}/env`)
 
     if (!res.ok) {
       console.error(chalk.red(`Failed to list env vars (${res.status})`))
@@ -65,18 +53,10 @@ export async function envList() {
 }
 
 export async function envSet(key: string, value: string) {
-  const token = requireAuth()
   const config = requireConfig()
 
   try {
-    const res = await fetch(`${API_BASE}/v1/developer/apps/${config.slug}/env`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ key, value }),
-    })
+    const res = await apiFetchJson(`/api/v1/developer/apps/${config.slug}/env`, 'PUT', { key, value })
 
     if (!res.ok) {
       const body = await res.text()
@@ -92,14 +72,10 @@ export async function envSet(key: string, value: string) {
 }
 
 export async function envRemove(key: string) {
-  const token = requireAuth()
   const config = requireConfig()
 
   try {
-    const res = await fetch(`${API_BASE}/v1/developer/apps/${config.slug}/env/${key}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const res = await apiFetch(`/api/v1/developer/apps/${config.slug}/env/${key}`, { method: 'DELETE' })
 
     if (!res.ok) {
       console.error(chalk.red(`Failed to remove ${key} (${res.status})`))
@@ -114,16 +90,13 @@ export async function envRemove(key: string) {
 }
 
 export async function envPull(file?: string) {
-  const token = requireAuth()
   const slug = requireSlug()
   const target = resolve(file ?? '.env.local')
 
   logStatus(`Pulling env vars for ${slug}...`)
 
   try {
-    const res = await fetch(`${API_BASE}/v1/developer/apps/${slug}/env`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const res = await apiFetch(`/api/v1/developer/apps/${slug}/env`)
 
     if (!res.ok) {
       outputError('api_error', `Failed to pull env vars (${res.status})`)

@@ -5,21 +5,9 @@
  */
 
 import chalk from 'chalk'
-import { API_BASE, loadBagdockJson } from './config'
-import { getAuthToken } from './auth'
+import { loadBagdockJson } from './config'
+import { apiFetch } from './api'
 import { isJsonMode, outputSuccess, outputError, outputList, status } from './output'
-
-async function apiRequest(method: string, path: string) {
-  const token = getAuthToken()
-  if (!token) {
-    outputError('UNAUTHENTICATED', 'Not logged in. Run `bagdock login` or set BAGDOCK_API_KEY.')
-  }
-
-  return fetch(`${API_BASE}${path}`, {
-    method,
-    headers: { 'Authorization': `Bearer ${token}` },
-  })
-}
 
 function resolveSlug(slug?: string): string {
   if (slug) return slug
@@ -34,7 +22,7 @@ export async function logsList(opts: { app?: string; limit?: string }) {
   const limit = opts.limit || '50'
   status(`Fetching logs for ${slug}...`)
 
-  const res = await apiRequest('GET', `/api/v1/developer/apps/${slug}/logs?limit=${limit}`)
+  const res = await apiFetch(`/api/v1/developer/apps/${slug}/logs?limit=${limit}`)
 
   if (!res.ok) {
     if (res.status === 404) {
@@ -67,7 +55,7 @@ export async function logsGet(id: string, opts: { app?: string }) {
   const slug = resolveSlug(opts.app)
   status(`Fetching log entry ${id}...`)
 
-  const res = await apiRequest('GET', `/api/v1/developer/apps/${slug}/logs/${id}`)
+  const res = await apiFetch(`/api/v1/developer/apps/${slug}/logs/${id}`)
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: { message: res.statusText } })) as any
@@ -96,7 +84,7 @@ export async function logsTail(opts: { app?: string }) {
 
   const poll = async () => {
     try {
-      const res = await apiRequest('GET', `/api/v1/developer/apps/${slug}/logs?since=${encodeURIComponent(lastTimestamp)}&limit=100`)
+      const res = await apiFetch(`/api/v1/developer/apps/${slug}/logs?since=${encodeURIComponent(lastTimestamp)}&limit=100`)
       if (res.ok) {
         const result = await res.json() as { data: any[] }
         for (const entry of result.data || []) {

@@ -8,30 +8,17 @@
  */
 
 import chalk from 'chalk'
-import { API_BASE } from './config'
-import { getAuthToken } from './auth'
+import { apiFetch } from './api'
 import { isJsonMode, outputSuccess, outputError, outputList, status } from './output'
 import { requireSlug } from './link'
 
-function requireAuth(): string {
-  const token = getAuthToken()
-  if (!token) {
-    outputError('auth_error', 'Not authenticated. Run bagdock login or set BAGDOCK_API_KEY.')
-    process.exit(1)
-  }
-  return token
-}
-
 export async function submissionList(opts: { app?: string }) {
-  const token = requireAuth()
   const slug = requireSlug(opts.app)
 
   status(`Fetching submissions for ${slug}...`)
 
   try {
-    const res = await fetch(`${API_BASE}/v1/developer/apps/${slug}/submissions`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const res = await apiFetch(`/api/v1/developer/apps/${slug}/submissions`)
 
     if (res.status === 404) {
       outputError('not_found', `App "${slug}" not found or no submissions exist.`)
@@ -71,15 +58,12 @@ export async function submissionList(opts: { app?: string }) {
 }
 
 export async function submissionStatus(id: string, opts: { app?: string }) {
-  const token = requireAuth()
   const slug = requireSlug(opts.app)
 
   status(`Fetching submission ${id}...`)
 
   try {
-    const res = await fetch(`${API_BASE}/v1/developer/apps/${slug}/submissions/${id}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const res = await apiFetch(`/api/v1/developer/apps/${slug}/submissions/${id}`)
 
     if (res.status === 404) {
       outputError('not_found', `Submission "${id}" not found.`)
@@ -117,15 +101,13 @@ export async function submissionStatus(id: string, opts: { app?: string }) {
 }
 
 export async function submissionWithdraw(id: string, opts: { app?: string }) {
-  const token = requireAuth()
   const slug = requireSlug(opts.app)
 
   status(`Withdrawing submission ${id}...`)
 
   try {
-    const res = await fetch(`${API_BASE}/v1/developer/apps/${slug}/submissions/${id}/withdraw`, {
+    const res = await apiFetch(`/api/v1/developer/apps/${slug}/submissions/${id}/withdraw`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
     })
 
     if (res.status === 404) {

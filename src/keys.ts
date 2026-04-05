@@ -3,27 +3,8 @@
  */
 
 import chalk from 'chalk'
-import { API_BASE } from './config'
-import { getAuthToken } from './auth'
+import { apiFetch, apiFetchJson } from './api'
 import { isJsonMode, outputSuccess, outputError, outputList, status, success } from './output'
-
-async function apiRequest(method: string, path: string, body?: unknown) {
-  const token = getAuthToken()
-  if (!token) {
-    outputError('UNAUTHENTICATED', 'Not logged in. Run `bagdock login` or set BAGDOCK_API_KEY.')
-  }
-
-  const headers: Record<string, string> = { 'Authorization': `Bearer ${token}` }
-  const init: RequestInit = { method, headers }
-
-  if (body) {
-    headers['Content-Type'] = 'application/json'
-    init.body = JSON.stringify(body)
-  }
-
-  const res = await fetch(`${API_BASE}${path}`, init)
-  return res
-}
 
 export async function keysCreate(opts: {
   name: string
@@ -34,7 +15,7 @@ export async function keysCreate(opts: {
 }) {
   status('Creating API key...')
 
-  const res = await apiRequest('POST', '/api/v1/operator/api-keys', {
+  const res = await apiFetchJson('/api/v1/operator/api-keys', 'POST', {
     name: opts.name,
     key_type: opts.type || 'secret',
     key_category: opts.category || 'standard',
@@ -74,7 +55,7 @@ export async function keysList(opts: { environment?: string }) {
   let path = '/api/v1/operator/api-keys'
   if (opts.environment) path += `?environment=${opts.environment}`
 
-  const res = await apiRequest('GET', path)
+  const res = await apiFetch(path)
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: { message: res.statusText } })) as any
@@ -108,7 +89,7 @@ export async function keysDelete(id: string, opts: { yes?: boolean; reason?: str
 
   status(`Revoking API key ${id}...`)
 
-  const res = await apiRequest('DELETE', `/api/v1/operator/api-keys/${id}`, {
+  const res = await apiFetchJson(`/api/v1/operator/api-keys/${id}`, 'DELETE', {
     reason: opts.reason,
   })
 

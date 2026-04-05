@@ -15,10 +15,17 @@ describe('doctor command', () => {
       getAuthSource: () => ({ token: 'sk_live_test123', source: 'env (BAGDOCK_API_KEY)' }),
     }))
 
-    vi.doMock('../src/config', () => ({
-      loadBagdockJson: () => ({ slug: 'test-app', type: 'edge', kind: 'adapter', category: 'access' }),
-      CONFIG_DIR: '/tmp/test-bagdock',
-    }))
+    vi.doMock('../src/config', async (importOriginal) => {
+      const actual = await importOriginal() as any
+      return {
+        ...actual,
+        loadBagdockJson: () => ({ slug: 'test-app', type: 'edge', kind: 'adapter', category: 'access' }),
+        loadCredentials: () => ({ accessToken: 'tok', operatorSlug: 'wisestorage', environment: 'live' }),
+        resolveEnvironment: () => 'live',
+        resolveOperatorSlug: () => 'wisestorage',
+        getActiveProfileName: () => 'default',
+      }
+    })
 
     const { doctor } = await import('../src/doctor')
 
@@ -34,9 +41,9 @@ describe('doctor command', () => {
     expect(outputSuccess).toHaveBeenCalledOnce()
     const result = (outputSuccess as any).mock.calls[0][0]
     expect(result.ok).toBe(true)
-    expect(result.checks).toHaveLength(4)
+    expect(result.checks).toHaveLength(5)
     expect(result.checks.map((c: any) => c.name)).toEqual([
-      'CLI Version', 'API Key', 'Project Config', 'AI Agents',
+      'CLI Version', 'API Key', 'Operator Context', 'Project Config', 'AI Agents',
     ])
   })
 
@@ -50,10 +57,17 @@ describe('doctor command', () => {
       getAuthSource: () => ({ token: null, source: 'none' }),
     }))
 
-    vi.doMock('../src/config', () => ({
-      loadBagdockJson: () => null,
-      CONFIG_DIR: '/tmp/test-bagdock',
-    }))
+    vi.doMock('../src/config', async (importOriginal) => {
+      const actual = await importOriginal() as any
+      return {
+        ...actual,
+        loadBagdockJson: () => null,
+        loadCredentials: () => null,
+        resolveEnvironment: () => 'live',
+        resolveOperatorSlug: () => undefined,
+        getActiveProfileName: () => 'default',
+      }
+    })
 
     const { doctor } = await import('../src/doctor')
 

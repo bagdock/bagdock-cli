@@ -11,6 +11,7 @@
 import {
   saveCredentials, clearCredentials, loadCredentials,
   listProfiles, switchProfile, getActiveProfileName,
+  updateProfileContext,
   API_BASE, DASHBOARD_BASE,
 } from './config'
 import chalk from 'chalk'
@@ -116,6 +117,7 @@ export async function login() {
         expires_in?: number
         email?: string
         operator_id?: string
+        operator_slug?: string
       }
 
       saveCredentials({
@@ -124,12 +126,28 @@ export async function login() {
         expiresAt: tokens.expires_in ? Date.now() + tokens.expires_in * 1000 : undefined,
         email: tokens.email,
         operatorId: tokens.operator_id,
+        operatorSlug: tokens.operator_slug,
+        environment: 'live',
       })
 
       console.log(chalk.green('\n  Logged in successfully!'))
       if (tokens.email) console.log('  Email:', chalk.bold(tokens.email))
-      if (tokens.operator_id) console.log('  Operator:', chalk.bold(tokens.operator_id))
+      if (tokens.operator_slug) {
+        console.log('  Operator:', chalk.bold(tokens.operator_slug))
+      } else if (tokens.operator_id) {
+        console.log('  Operator ID:', chalk.bold(tokens.operator_id))
+      }
+      console.log('  Environment:', chalk.bold('live'))
       console.log('  Profile:', chalk.bold(getActiveProfileName()))
+
+      // Post-login: attempt to resolve operator context
+      if (!tokens.operator_slug) {
+        await resolveOperatorAfterLogin(tokens.access_token)
+      } else {
+        console.log()
+        console.log(chalk.dim('  Tip: run'), chalk.cyan('bagdock switch'), chalk.dim('to change operator or environment.'))
+      }
+
       return
     }
 
@@ -184,11 +202,22 @@ export async function whoami() {
 
     const user = await res.json() as { email: string; operator_id?: string; name?: string }
 
+    const creds = loadCredentials()
     if (isJsonMode()) {
-      outputSuccess({ ...user, profile: getActiveProfileName() })
+      outputSuccess({
+        ...user,
+        profile: getActiveProfileName(),
+        operator_slug: creds?.operatorSlug,
+        environment: creds?.environment ?? 'live',
+      })
     } else {
       console.log(chalk.green('Logged in as'), chalk.bold(user.email))
-      if (user.operator_id) console.log('Operator:', chalk.bold(user.operator_id))
+      if (creds?.operatorSlug) {
+        console.log('Operator:', chalk.bold(creds.operatorSlug))
+      } else if (user.operator_id) {
+        console.log('Operator ID:', chalk.bold(user.operator_id))
+      }
+      console.log('Environment:', chalk.bold(creds?.environment ?? 'live'))
       if (user.name) console.log('Name:', user.name)
       console.log('Profile:', chalk.bold(getActiveProfileName()))
     }
@@ -216,8 +245,9 @@ export async function authList() {
     const marker = p.active ? chalk.green('* ') : '  '
     const label = p.active ? chalk.bold(p.name) : p.name
     const email = p.email ? chalk.dim(` (${p.email})`) : ''
-    const op = p.operatorId ? chalk.dim(` [${p.operatorId}]`) : ''
-    console.log(`  ${marker}${label}${email}${op}`)
+    const operator = p.operatorSlug ? chalk.dim(` ${p.operatorSlug}`) : p.operatorId ? chalk.dim(` ${p.operatorId}`) : ''
+    const env = p.environment ? chalk.dim(` [${p.environment}]`) : ''
+    console.log(`  ${marker}${label}${email}${operator}${env}`)
   }
   console.log()
 }
@@ -273,6 +303,36 @@ export async function authSwitch(name?: string) {
   } else {
     console.log(chalk.red(`\n  Profile "${target}" not found.\n`))
     process.exit(1)
+  }
+}
+
+/**
+ * After login, try to resolve operator context. If the token has no
+ * operator_slug, fetch the user's operators and auto-set if only one.
+ */
+async function resolveOperatorAfterLogin(accessToken: string) {
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/me/operators`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    })
+    if (!res.ok) return
+
+    const body = await res.json() as { data: Array<{ id: string; slug: string; name: string }> }
+    const operators = body.data ?? []
+
+    if (operators.length === 1) {
+      const op = operators[0]
+      updateProfileContext(op.id, op.slug, 'live')
+      console.log('  Operator:', chalk.bold(`${op.name} (${op.slug})`))
+      console.log()
+      console.log(chalk.dim('  Tip: run'), chalk.cyan('bagdock switch'), chalk.dim('to change environment to test/sandbox.'))
+    } else if (operators.length > 1) {
+      console.log()
+      console.log(chalk.dim(`  You have access to ${operators.length} operators.`))
+      console.log(chalk.dim('  Run'), chalk.cyan('bagdock switch'), chalk.dim('to select one.'))
+    }
+  } catch {
+    // Non-fatal — operator resolution is best-effort
   }
 }
 

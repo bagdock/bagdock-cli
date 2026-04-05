@@ -160,6 +160,42 @@ The CLI resolves your API key using the following priority chain:
 
 If no key is found from any source, the CLI errors with code `auth_error`.
 
+## Environment context
+
+The CLI supports Stripe-style live/test mode switching. Login is universal — you authenticate once, then select which operator and environment to target.
+
+### Operator + environment resolution
+
+| Priority | Source | How to set |
+|----------|--------|-----------|
+| 1 (highest) | `--env` global flag | `bagdock --env test deploy` |
+| 2 | `.bagdock/link.json` | `bagdock link --env test` |
+| 3 | Profile stored value | `bagdock switch` |
+| 4 (lowest) | Default | `live` |
+
+For operator slug:
+
+| Priority | Source | How to set |
+|----------|--------|-----------|
+| 1 (highest) | `BAGDOCK_OPERATOR` env var | `export BAGDOCK_OPERATOR=wisestorage` |
+| 2 (lowest) | Profile stored value | `bagdock switch` or `bagdock login` |
+
+### Typical workflow
+
+```bash
+# Login (universal identity)
+bagdock login
+
+# Select operator and environment
+bagdock switch
+
+# Or override per-command
+bagdock --env test deploy --target staging
+bagdock --env live apps list
+```
+
+All API requests include `X-Environment` and `X-Operator-Slug` headers, ensuring the backend resolves the correct tenant database.
+
 ## Commands
 
 ### `bagdock login`
@@ -246,6 +282,7 @@ bagdock doctor
 |-------|------|------|------|
 | CLI Version | Running latest | Update available or registry unreachable | — |
 | API Key | Key found (shows masked key + source) | — | No key found |
+| Operator Context | Operator + environment set | No operator selected | — |
 | Project Config | Valid `bagdock.json` found | No config or incomplete | — |
 | AI Agents | Lists detected agents (or none) | — | — |
 
@@ -297,6 +334,46 @@ Each check has a `status` of `pass`, `warn`, or `fail`. The top-level `ok` is `f
 #### Exit code
 
 Exits `0` when all checks pass or warn. Exits `1` if any check fails.
+
+---
+
+### `bagdock switch`
+
+Switch operator and environment context. After login, use this to select which operator (live or sandbox) to target.
+
+```bash
+bagdock switch
+```
+
+#### Interactive mode
+
+```
+? Select operator:
+  1. WiseStorage (wisestorage)
+  2. Ardran REIT (ardran-reit)
+> 1
+
+? Select environment:
+  1. Live
+  2. Sandbox: crm-integration (default)
+  3. Sandbox: access-testing
+> 2
+
+Switched to wisestorage [test] (sandbox: crm-integration)
+```
+
+#### Non-interactive mode (CI/CD)
+
+```bash
+bagdock switch --operator wisestorage --env test
+```
+
+#### JSON output
+
+```bash
+bagdock switch --operator wisestorage --env live --json
+# => {"operator":{"id":"opreg_xxx","slug":"wisestorage","name":"WiseStorage"},"environment":"live"}
+```
 
 ---
 
@@ -700,6 +777,7 @@ bagdock [global options] <command> [command options]
 |------|-------------|
 | `--api-key <key>` | Override API key for this invocation (takes highest priority) |
 | `-p, --profile <name>` | Profile to use (overrides `BAGDOCK_PROFILE` env var) |
+| `--env <live\|test>` | Override environment for this invocation |
 | `--json` | Force JSON output even in interactive terminals |
 | `-q, --quiet` | Suppress spinners and status output (implies `--json`) |
 | `--version` | Print version and exit |
