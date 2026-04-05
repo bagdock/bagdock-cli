@@ -3,26 +3,13 @@
  */
 
 import chalk from 'chalk'
-import { API_BASE } from './config'
-import { getAuthToken } from './auth'
+import { apiFetch } from './api'
 import { isJsonMode, outputSuccess, outputError, outputList, status } from './output'
-
-async function apiRequest(method: string, path: string) {
-  const token = getAuthToken()
-  if (!token) {
-    outputError('UNAUTHENTICATED', 'Not logged in. Run `bagdock login` or set BAGDOCK_API_KEY.')
-  }
-
-  return fetch(`${API_BASE}${path}`, {
-    method,
-    headers: { 'Authorization': `Bearer ${token}` },
-  })
-}
 
 export async function appsList() {
   status('Fetching apps...')
 
-  const res = await apiRequest('GET', '/api/v1/developer/apps')
+  const res = await apiFetch('/api/v1/developer/apps')
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ error: { message: res.statusText } })) as any
@@ -55,7 +42,7 @@ export async function appsList() {
 export async function appsGet(slug: string) {
   status(`Fetching app ${slug}...`)
 
-  const res = await apiRequest('GET', `/api/v1/developer/apps/${slug}`)
+  const res = await apiFetch(`/api/v1/developer/apps/${slug}`)
 
   if (!res.ok) {
     if (res.status === 404) {

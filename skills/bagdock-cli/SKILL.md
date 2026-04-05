@@ -45,8 +45,18 @@ For CI/CD, set `BAGDOCK_API_KEY` in your environment. For interactive use, run `
 | `-q, --quiet` | Suppress status messages (implies `--json`) |
 | `--api-key <key>` | Override auth for this invocation |
 | `-p, --profile <name>` | Use a named profile (overrides `BAGDOCK_PROFILE`) |
+| `--env <live\|test>` | Override environment for this invocation |
 | `-V, --version` | Print version |
 | `-h, --help` | Print help |
+
+## Environment Context
+
+All API calls include `X-Environment` and `X-Operator-Slug` headers. Resolution:
+
+- **Environment**: `--env` flag > `.bagdock/link.json` > profile > `BAGDOCK_ENV` > `live`
+- **Operator**: `BAGDOCK_OPERATOR` env var > profile stored value
+
+Use `bagdock switch` to select operator and environment interactively, or pass `--env test` to any command.
 
 ## Available Commands
 
@@ -73,8 +83,9 @@ For CI/CD, set `BAGDOCK_API_KEY` in your environment. For interactive use, run `
 | `open [slug]` | Open project in Bagdock dashboard |
 | `inspect [slug]` | Show deployment details and status |
 | `link` | Link directory to a Bagdock app or edge |
+| `switch` | Switch operator and environment context (live/test) |
 | `doctor` | Run environment diagnostics (version, auth, config, agents) |
-| `auth list` | List stored profiles |
+| `auth list` | List stored profiles (with operator + env) |
 | `auth switch [name]` | Switch active profile |
 | `apps list` | List deployed applications |
 | `apps get <slug>` | Show details for an application |

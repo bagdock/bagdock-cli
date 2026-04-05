@@ -3,25 +3,16 @@
  */
 
 import chalk from 'chalk'
-import { API_BASE } from './config'
-import { getAuthToken } from './auth'
+import { apiFetch } from './api'
 import { isJsonMode, outputSuccess, outputError, status } from './output'
 import { requireSlug } from './link'
 
 export async function inspect(slugArg?: string) {
-  const token = getAuthToken()
-  if (!token) {
-    outputError('auth_error', 'Not authenticated. Run bagdock login or set BAGDOCK_API_KEY.')
-    process.exit(1)
-  }
-
   const slug = requireSlug(slugArg)
   status(`Inspecting ${slug}...`)
 
   try {
-    const res = await fetch(`${API_BASE}/v1/developer/apps/${slug}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
+    const res = await apiFetch(`/api/v1/developer/apps/${slug}`)
 
     if (res.status === 404) outputError('not_found', `App "${slug}" not found.`)
     if (!res.ok) outputError('api_error', `API returned ${res.status}`)

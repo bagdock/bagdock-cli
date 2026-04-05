@@ -13,6 +13,7 @@
  *   login     Authenticate via OAuth2 (opens browser)
  *   logout    Clear stored credentials
  *   whoami    Show current authenticated user
+ *   switch    Switch operator and environment context (live/test)
  *   init      Scaffold a new project with bagdock.json
  *   dev       Start local dev server
  *   deploy    Build and deploy to Bagdock platform
@@ -30,23 +31,31 @@ import { Command } from 'commander'
 import { login, logout, whoami, setApiKeyOverride, authList, authSwitch } from '../src/auth'
 import { init } from '../src/init'
 import { setOutputMode } from '../src/output'
-import { setProfileOverride } from '../src/config'
+import { setProfileOverride, setEnvironmentOverride, type BagdockEnvironment } from '../src/config'
 
 const program = new Command()
 
 program
   .name('bagdock')
   .description('Bagdock developer CLI — built for humans, AI agents, and CI/CD pipelines')
-  .version('0.4.0')
+  .version('0.5.0')
   .option('--json', 'Force JSON output (auto-enabled in non-TTY)')
   .option('-q, --quiet', 'Suppress status messages (implies --json)')
   .option('--api-key <key>', 'API key to use for this invocation')
   .option('-p, --profile <name>', 'Profile to use (overrides BAGDOCK_PROFILE)')
+  .option('--env <environment>', 'Override environment for this invocation (live, test)')
   .hook('preAction', (_thisCommand, actionCommand) => {
     const opts = program.opts()
     setOutputMode({ json: opts.json, quiet: opts.quiet })
     if (opts.apiKey) setApiKeyOverride(opts.apiKey)
     if (opts.profile) setProfileOverride(opts.profile)
+    if (opts.env) {
+      if (opts.env !== 'live' && opts.env !== 'test') {
+        console.error('Error: --env must be "live" or "test"')
+        process.exit(1)
+      }
+      setEnvironmentOverride(opts.env as BagdockEnvironment)
+    }
   })
 
 // ---------- Auth ----------
@@ -81,6 +90,18 @@ authCmd
   .command('switch [name]')
   .description('Switch active profile')
   .action(async (name?: string) => authSwitch(name))
+
+// ---------- Switch ----------
+
+program
+  .command('switch')
+  .description('Switch operator and environment context (live/test)')
+  .option('--operator <slug>', 'Operator slug (required in non-interactive mode)')
+  .option('--env <environment>', 'Environment: live or test')
+  .action(async (opts) => {
+    const { switchContext } = await import('../src/switch')
+    await switchContext(opts)
+  })
 
 // ---------- Doctor ----------
 
@@ -120,7 +141,7 @@ program
 program
   .command('deploy')
   .description('Build locally and deploy via Bagdock API')
-  .option('--env <environment>', 'Target environment (preview, staging, production)', 'staging')
+  .option('--target <target>', 'Deploy target (preview, staging, production)', 'staging')
   .option('--preview', 'Deploy an ephemeral preview ({slug}-{hash}.pre.bdok.dev)')
   .option('--production', 'Deploy to production ({slug}.bdok.dev)')
   .option('-y, --yes', 'Skip confirmation prompts')
@@ -207,7 +228,8 @@ program
 program
   .command('link')
   .description('Link current directory to a Bagdock app or edge')
-  .option('--slug <slug>', 'Project slug (required in non-interactive mode)')
+  .option('--slug <slug>', 'App slug (required in non-interactive mode)')
+  .option('--env <environment>', 'Default environment for this link (live, test)')
   .action(async (opts) => {
     const { link } = await import('../src/link')
     await link(opts)

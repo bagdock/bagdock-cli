@@ -5,6 +5,33 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] - 2026-04-05
+
+### Added
+
+- `bagdock switch` — interactive operator and environment (live/test) selection
+- `--env live|test` global flag — override environment for any command
+- Operator context awareness — all API calls now send `X-Environment` and `X-Operator-Slug` headers
+- `bagdock link --env` — store a default environment in `.bagdock/link.json`
+- `bagdock doctor` now shows operator context and environment status
+- `bagdock auth list` and `bagdock whoami` now display operator slug and environment
+- Post-login operator auto-resolution — single-operator accounts auto-set context
+- `GET /api/v1/me/operators` and `GET /api/v1/me/sandboxes` backend endpoints
+- OAuth2 device flow now returns `operator_slug` alongside `operator_id`
+
+### Changed
+
+- **BREAKING**: `bagdock deploy --env` renamed to `bagdock deploy --target` to avoid collision with the new global `--env` flag
+- All CLI commands now use a shared `apiFetch()` helper with automatic context headers
+- `bagdock open` generates correct dashboard URLs with operator slug and `/test` segment
+- Credentials interface extended with `operatorSlug` and `environment` fields
+- Version bumped to 0.5.0
+
+### Fixed
+
+- API path prefix mismatch: corrected `/v1/` to `/api/v1/` in submission, inspect, env, and link commands
+- `bagdock open` now generates correct dashboard URL (`/{operatorSlug}[/test]/developer/apps/{slug}`)
+
 ## [0.4.0] - 2026-04-05
 
 ### Added

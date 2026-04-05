@@ -10,7 +10,7 @@ import { homedir, platform } from 'os'
 import { fileURLToPath } from 'url'
 import chalk from 'chalk'
 import { getAuthSource } from './auth'
-import { loadBagdockJson, CONFIG_DIR } from './config'
+import { loadBagdockJson, loadCredentials, resolveEnvironment, resolveOperatorSlug, getActiveProfileName } from './config'
 import { isJsonMode, outputSuccess } from './output'
 
 interface Check {
@@ -107,12 +107,34 @@ function checkAgents(): Check {
   return { name: 'AI Agents', status: 'pass', message: `Detected: ${detected.join(', ')}` }
 }
 
+function checkOperatorContext(): Check {
+  const creds = loadCredentials()
+  const slug = resolveOperatorSlug()
+  const env = resolveEnvironment()
+  const profile = getActiveProfileName()
+
+  if (!slug) {
+    return {
+      name: 'Operator Context',
+      status: 'warn',
+      message: `No operator selected (profile: ${profile}). Run \`bagdock switch\` to set one.`,
+    }
+  }
+
+  return {
+    name: 'Operator Context',
+    status: 'pass',
+    message: `${slug} [${env}] (profile: ${profile})`,
+  }
+}
+
 export async function doctor() {
   const checks: Check[] = []
 
   if (isJsonMode()) {
     checks.push(await checkVersion())
     checks.push(checkAuth())
+    checks.push(checkOperatorContext())
     checks.push(checkProjectConfig())
     checks.push(checkAgents())
 
@@ -133,6 +155,11 @@ export async function doctor() {
   const authCheck = checkAuth()
   checks.push(authCheck)
   console.log(`  ${ICON[authCheck.status]} ${authCheck.name}: ${authCheck.message}`)
+
+  // Operator context check
+  const contextCheck = checkOperatorContext()
+  checks.push(contextCheck)
+  console.log(`  ${ICON[contextCheck.status]} ${contextCheck.name}: ${contextCheck.message}`)
 
   // Project config check
   const configCheck = checkProjectConfig()
