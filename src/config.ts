@@ -26,6 +26,15 @@ export function getDashboardBase() { return _dashboardBase }
  * in the current working directory. Used by the --ngrok flag to point
  * the CLI at a local tunnel without hardcoding internal URLs.
  */
+function normalizeUrl(raw: string): string {
+  let url = raw.replace(/^['"]|['"]$/g, '').replace(/\/+$/, '')
+  if (!/^https?:\/\//i.test(url)) {
+    console.error(chalk.red(`Invalid URL (must start with http:// or https://): ${raw}`))
+    process.exit(1)
+  }
+  return url
+}
+
 export function loadLocalEnv() {
   const envPath = join(process.cwd(), '.env.local')
   if (!existsSync(envPath)) {
@@ -51,9 +60,9 @@ export function loadLocalEnv() {
     process.exit(1)
   }
 
-  _apiBase = apiUrl
+  _apiBase = normalizeUrl(apiUrl)
   if (vars['BAGDOCK_DASHBOARD_URL']) {
-    _dashboardBase = vars['BAGDOCK_DASHBOARD_URL']
+    _dashboardBase = normalizeUrl(vars['BAGDOCK_DASHBOARD_URL'])
   }
 
   console.log(chalk.dim(`Using local env → ${_apiBase}`))

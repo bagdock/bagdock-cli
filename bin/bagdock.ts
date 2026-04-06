@@ -47,8 +47,8 @@ program
   .option('--ngrok', 'Use API URLs from .env.local (for ngrok tunnels)')
   .hook('preAction', (_thisCommand, actionCommand) => {
     const opts = program.opts()
-    if (opts.ngrok) loadLocalEnv()
     setOutputMode({ json: opts.json, quiet: opts.quiet })
+    if (opts.ngrok) loadLocalEnv()
     if (opts.apiKey) setApiKeyOverride(opts.apiKey)
     if (opts.profile) setProfileOverride(opts.profile)
     if (opts.env) {
