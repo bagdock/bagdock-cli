@@ -6,6 +6,7 @@
 import { homedir } from 'os'
 import { join } from 'path'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
+import chalk from 'chalk'
 
 // ============================================================================
 // PATHS
@@ -14,8 +15,49 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs'
 export const CONFIG_DIR = join(homedir(), '.bagdock')
 const CREDENTIALS_FILE = join(CONFIG_DIR, 'credentials.json')
 
-export const API_BASE = process.env.BAGDOCK_API_URL ?? 'https://api.bagdock.com'
-export const DASHBOARD_BASE = process.env.BAGDOCK_DASHBOARD_URL ?? 'https://dashboard.bagdock.com'
+let _apiBase = process.env.BAGDOCK_API_URL ?? 'https://api.bagdock.com'
+let _dashboardBase = process.env.BAGDOCK_DASHBOARD_URL ?? 'https://dashboard.bagdock.com'
+
+export function getApiBase() { return _apiBase }
+export function getDashboardBase() { return _dashboardBase }
+
+/**
+ * Read BAGDOCK_API_URL / BAGDOCK_DASHBOARD_URL from a .env.local file
+ * in the current working directory. Used by the --ngrok flag to point
+ * the CLI at a local tunnel without hardcoding internal URLs.
+ */
+export function loadLocalEnv() {
+  const envPath = join(process.cwd(), '.env.local')
+  if (!existsSync(envPath)) {
+    console.error(chalk.red('No .env.local found in'), chalk.bold(process.cwd()))
+    console.error(chalk.dim('Create one with BAGDOCK_API_URL=https://your-ngrok-url'))
+    process.exit(1)
+  }
+
+  const vars: Record<string, string> = {}
+  const lines = readFileSync(envPath, 'utf-8').split('\n')
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (!trimmed || trimmed.startsWith('#')) continue
+    const eq = trimmed.indexOf('=')
+    if (eq === -1) continue
+    vars[trimmed.slice(0, eq).trim()] = trimmed.slice(eq + 1).trim()
+  }
+
+  const apiUrl = vars['BAGDOCK_API_URL']
+  if (!apiUrl) {
+    console.error(chalk.red('BAGDOCK_API_URL not found in .env.local'))
+    console.error(chalk.dim('Add BAGDOCK_API_URL=https://your-ngrok-url to .env.local'))
+    process.exit(1)
+  }
+
+  _apiBase = apiUrl
+  if (vars['BAGDOCK_DASHBOARD_URL']) {
+    _dashboardBase = vars['BAGDOCK_DASHBOARD_URL']
+  }
+
+  console.log(chalk.dim(`Using local env → ${_apiBase}`))
+}
 
 // ============================================================================
 // CREDENTIALS — multi-profile

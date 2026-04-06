@@ -8,7 +8,7 @@
  *   Operator:    BAGDOCK_OPERATOR > profile
  */
 
-import { API_BASE, resolveEnvironment, resolveOperatorSlug, getEnvironmentOverride, resolveLinkEnvironment } from './config'
+import { getApiBase, resolveEnvironment, resolveOperatorSlug, getEnvironmentOverride, resolveLinkEnvironment } from './config'
 import { getAuthToken } from './auth'
 import { outputError } from './output'
 
@@ -46,7 +46,7 @@ export async function apiFetch(path: string, init?: RequestInit): Promise<Respon
   headers.set('X-Environment', env)
   if (opSlug) headers.set('X-Operator-Slug', opSlug)
 
-  return fetch(`${API_BASE}${path}`, { ...init, headers })
+  return fetch(`${getApiBase()}${path}`, { ...init, headers })
 }
 
 /**
