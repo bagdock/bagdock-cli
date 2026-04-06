@@ -17,7 +17,7 @@
     "type": "git",
     "url": "git+https://github.com/bagdock/bagdock-cli.git"
   },
-  "homepage": "https://github.com/bagdock/bagdock-cli#readme",
+  "homepage": "https://bagdock.com/docs/cli",
   "bugs": {
     "url": "https://github.com/bagdock/bagdock-cli/issues"
   },
