@@ -9,7 +9,7 @@
  */
 
 import chalk from 'chalk'
-import { loadBagdockJson, API_BASE } from './config'
+import { loadBagdockJson, getApiBase } from './config'
 import { getAuthToken } from './auth'
 
 export async function submit() {
@@ -29,7 +29,7 @@ export async function submit() {
   console.log(chalk.cyan(`\nSubmitting ${chalk.bold(config.slug)} for marketplace review...\n`))
 
   try {
-    const res = await fetch(`${API_BASE}/api/v1/developer/apps/${config.slug}/submit`, {
+    const res = await fetch(`${getApiBase()}/api/v1/developer/apps/${config.slug}/submit`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

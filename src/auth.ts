@@ -12,7 +12,7 @@ import {
   saveCredentials, clearCredentials, loadCredentials,
   listProfiles, switchProfile, getActiveProfileName,
   updateProfileContext,
-  API_BASE, DASHBOARD_BASE,
+  getApiBase,
 } from './config'
 import chalk from 'chalk'
 import { isJsonMode, outputSuccess, outputError } from './output'
@@ -64,7 +64,7 @@ export async function login() {
 
   console.log(chalk.cyan('\nRequesting device authorization...\n'))
 
-  const deviceRes = await fetch(`${API_BASE}/oauth2/device/authorize`, {
+  const deviceRes = await fetch(`${getApiBase()}/oauth2/device/authorize`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ client_id: CLIENT_ID, scope: 'developer:read developer:write' }),
@@ -100,7 +100,7 @@ export async function login() {
   while (Date.now() - startedAt < MAX_POLL_DURATION_MS) {
     await sleep(pollInterval)
 
-    const tokenRes = await fetch(`${API_BASE}/oauth2/token`, {
+    const tokenRes = await fetch(`${getApiBase()}/oauth2/token`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -191,7 +191,7 @@ export async function whoami() {
   }
 
   try {
-    const res = await fetch(`${API_BASE}/v1/auth/me`, {
+    const res = await fetch(`${getApiBase()}/v1/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
 
@@ -312,7 +312,7 @@ export async function authSwitch(name?: string) {
  */
 async function resolveOperatorAfterLogin(accessToken: string) {
   try {
-    const res = await fetch(`${API_BASE}/api/v1/me/operators`, {
+    const res = await fetch(`${getApiBase()}/api/v1/me/operators`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     })
     if (!res.ok) return

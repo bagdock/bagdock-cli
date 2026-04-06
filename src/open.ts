@@ -8,7 +8,7 @@
 
 import chalk from 'chalk'
 import openBrowser from 'open'
-import { DASHBOARD_BASE, resolveEnvironment, resolveOperatorSlug } from './config'
+import { getDashboardBase, resolveEnvironment, resolveOperatorSlug } from './config'
 import { isJsonMode, outputSuccess, outputError, status } from './output'
 import { requireSlug } from './link'
 
@@ -23,7 +23,7 @@ export async function open(slugArg?: string) {
   }
 
   const envSegment = env === 'test' ? '/test' : ''
-  const url = `${DASHBOARD_BASE}/${operatorSlug}${envSegment}/developer/apps/${slug}`
+  const url = `${getDashboardBase()}/${operatorSlug}${envSegment}/developer/apps/${slug}`
 
   if (isJsonMode()) {
     outputSuccess({ url, slug, operator: operatorSlug, environment: env })

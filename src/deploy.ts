@@ -18,7 +18,7 @@ import { join } from 'path'
 import { execSync } from 'child_process'
 import { createInterface } from 'readline'
 import chalk from 'chalk'
-import { loadBagdockJson, API_BASE } from './config'
+import { loadBagdockJson, getApiBase } from './config'
 import { getAuthToken } from './auth'
 
 interface DeployOptions {
@@ -127,7 +127,7 @@ export async function deploy(opts: DeployOptions) {
   }))
 
   try {
-    const res = await fetch(`${API_BASE}/api/v1/developer/apps/${config.slug}/deploy`, {
+    const res = await fetch(`${getApiBase()}/api/v1/developer/apps/${config.slug}/deploy`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

@@ -31,21 +31,23 @@ import { Command } from 'commander'
 import { login, logout, whoami, setApiKeyOverride, authList, authSwitch } from '../src/auth'
 import { init } from '../src/init'
 import { setOutputMode } from '../src/output'
-import { setProfileOverride, setEnvironmentOverride, type BagdockEnvironment } from '../src/config'
+import { setProfileOverride, setEnvironmentOverride, loadLocalEnv, type BagdockEnvironment } from '../src/config'
 
 const program = new Command()
 
 program
   .name('bagdock')
   .description('Bagdock developer CLI — built for humans, AI agents, and CI/CD pipelines')
-  .version('0.5.0')
+  .version('0.6.0')
   .option('--json', 'Force JSON output (auto-enabled in non-TTY)')
   .option('-q, --quiet', 'Suppress status messages (implies --json)')
   .option('--api-key <key>', 'API key to use for this invocation')
   .option('-p, --profile <name>', 'Profile to use (overrides BAGDOCK_PROFILE)')
   .option('--env <environment>', 'Override environment for this invocation (live, test)')
+  .option('--ngrok', 'Use API URLs from .env.local (for ngrok tunnels)')
   .hook('preAction', (_thisCommand, actionCommand) => {
     const opts = program.opts()
+    if (opts.ngrok) loadLocalEnv()
     setOutputMode({ json: opts.json, quiet: opts.quiet })
     if (opts.apiKey) setApiKeyOverride(opts.apiKey)
     if (opts.profile) setProfileOverride(opts.profile)
