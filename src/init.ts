@@ -70,8 +70,20 @@ export async function init(dir: string, opts: InitOptions) {
     writeFileSync(entryFile, template)
   }
 
+  if (type === 'edge' && kind === 'comms') {
+    const typesFile = join(srcDir, 'types.ts')
+    if (!existsSync(typesFile)) {
+      writeFileSync(typesFile, COMMS_TYPES_TEMPLATE())
+    }
+    const verifyFile = join(srcDir, 'verify.ts')
+    if (!existsSync(verifyFile)) {
+      writeFileSync(verifyFile, COMMS_VERIFY_TEMPLATE())
+    }
+  }
+
   const pkgFile = join(projectDir, 'package.json')
   if (!existsSync(pkgFile)) {
+    const deps: Record<string, string> = {}
     const devDeps: Record<string, string> = {
       '@cloudflare/workers-types': '^4.20240909.0',
       typescript: '^5.3.3',
@@ -79,12 +91,16 @@ export async function init(dir: string, opts: InitOptions) {
     if (type === 'edge' && kind === 'adapter') {
       devDeps['@bagdock/adapter-worker-template'] = 'workspace:*'
     }
+    if (type === 'edge' && kind === 'comms') {
+      deps['@bagdock/worker-sdk'] = '^0.1.0'
+    }
 
     writeFileSync(pkgFile, JSON.stringify({
       name: slug,
       version: '0.1.0',
       private: true,
       main: 'src/index.ts',
+      ...(Object.keys(deps).length ? { dependencies: deps } : {}),
       devDependencies: devDeps,
     }, null, 2))
   }
@@ -92,12 +108,17 @@ export async function init(dir: string, opts: InitOptions) {
   const label = type === 'app' ? 'app' : 'edge'
   console.log(chalk.green(`\nInitialised Bagdock ${label} project!\n`))
   console.log('Created:')
-  console.log(`  ${chalk.cyan('bagdock.json')}  — project config`)
-  console.log(`  ${chalk.cyan('src/index.ts')} — worker entry point`)
+  console.log(`  ${chalk.cyan('bagdock.json')}   — project config`)
+  console.log(`  ${chalk.cyan('src/index.ts')}  — worker entry point`)
+  if (type === 'edge' && kind === 'comms') {
+    console.log(`  ${chalk.cyan('src/types.ts')}  — environment bindings`)
+    console.log(`  ${chalk.cyan('src/verify.ts')} — webhook verification (customise for your vendor)`)
+  }
   console.log()
   console.log('Next steps:')
-  console.log(`  1. ${chalk.cyan('bagdock dev')}     — start local dev server`)
-  console.log(`  2. ${chalk.cyan('bagdock deploy')}  — deploy to Bagdock platform`)
+  console.log(`  1. ${chalk.cyan('bun install')}    — install dependencies`)
+  console.log(`  2. ${chalk.cyan('bagdock dev')}    — start local dev server`)
+  console.log(`  3. ${chalk.cyan('bagdock deploy')} — deploy to Bagdock platform`)
 }
 
 function resolveKind(type: ProjectType, kindOpt?: string): ProjectKind {
@@ -147,33 +168,77 @@ export default createAdapterWorker(new ${toPascalCase(slug)}Adapter())
 }
 
 function COMMS_TEMPLATE(slug: string) {
-  return `/**
- * ${toPascalCase(slug)} — Communications edge worker.
- *
- * Handles SMS, Voice, or Telephony actions dispatched by the workflow engine.
- */
+  return `import { createCommsWorker } from '@bagdock/worker-sdk'
+import type { HandlerContext } from '@bagdock/worker-sdk'
+import type { Env } from './types'
+import { vendorWebhookVerify } from './verify'
 
-interface Env {
-  API_KEY: string
+async function handleSmsSend(ctx: HandlerContext<Env>): Promise<Response> {
+  const { to, body } = await ctx.request.json() as { to: string; body: string }
+  // TODO: call your vendor's SMS API using ctx.env for secrets
+  return Response.json({ id: crypto.randomUUID(), status: 'queued', provider: '${slug}', from: '', to })
 }
 
-export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
-    const url = new URL(request.url)
-    const action = url.pathname.replace(/^\\//, '')
+async function handleSmsWebhook(ctx: HandlerContext<Env>): Promise<Response> {
+  const payload = await ctx.request.json()
+  ctx.logger.info('webhook.sms', { payload })
+  return Response.json({ received: true })
+}
 
-    if (action === 'send-sms') {
-      const body = await request.json() as { to: string; text: string; from?: string }
-      return Response.json({ id: crypto.randomUUID(), status: 'queued' })
-    }
+export default createCommsWorker<Env, readonly ['sms']>({
+  version: '0.1.0',
+  capabilities: ['sms'],
 
-    if (action === 'health') {
-      return Response.json({ status: 'healthy', version: '0.1.0' })
-    }
-
-    return Response.json({ error: 'Unknown action', action }, { status: 404 })
+  async onInstall(ctx) {
+    // TODO: provision vendor resources
+    ctx.logger.info('lifecycle.install', { operatorId: ctx.operatorId })
+    return { installation_state: { provisioned: true } }
   },
+
+  async onUninstall(ctx) {
+    // TODO: clean up vendor resources
+    ctx.logger.info('lifecycle.uninstall', { operatorId: ctx.operatorId })
+  },
+
+  routes: {
+    'sms/send': handleSmsSend,
+    'webhooks/sms': { handler: handleSmsWebhook, verify: vendorWebhookVerify },
+  },
+})
+`
 }
+
+function COMMS_TYPES_TEMPLATE() {
+  return `import type { BaseEnv } from '@bagdock/worker-sdk'
+
+export interface Env extends BaseEnv {
+  ADAPTER_NAME: string
+  PROVIDER_SLUG: string
+  API_KEY: string
+  WEBHOOK_SECRET: string
+  OPERATOR_CONFIG?: KVNamespace
+}
+`
+}
+
+function COMMS_VERIFY_TEMPLATE() {
+  return `import { hmacSha256Verify } from '@bagdock/worker-sdk'
+import type { VerifyFunction } from '@bagdock/worker-sdk'
+import type { Env } from './types'
+
+/**
+ * Adapter-local webhook verification.
+ *
+ * Replace with your vendor's signing method. See the @bagdock/worker-sdk
+ * README for examples using vendor SDKs or the ed25519Verify primitive.
+ */
+export const vendorWebhookVerify: VerifyFunction<Env> = (request, env, rawBody) =>
+  hmacSha256Verify({
+    signature: request.headers.get('x-webhook-signature'),
+    secret: env.WEBHOOK_SECRET,
+    signingString: rawBody,
+    timestamp: request.headers.get('x-webhook-timestamp'),
+  })
 `
 }
 
