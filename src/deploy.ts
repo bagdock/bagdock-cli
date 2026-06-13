@@ -124,6 +124,8 @@ export async function deploy(opts: DeployOptions) {
     version: config.version,
     environment,
     compatibilityDate: config.compatibilityDate ?? '2024-09-23',
+    ...(config.kv ? { kv: config.kv } : {}),
+    ...(config.webhooks ? { webhooks: config.webhooks } : {}),
   }))
 
   try {
