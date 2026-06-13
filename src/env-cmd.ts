@@ -1,8 +1,11 @@
 /**
  * `bagdock env` — Manage app environment variables via the Bagdock API.
  *
- * Variables are stored in Infisical (platform secret manager) and synced
- * to the Worker's Cloudflare secrets on next deploy.
+ * Secrets are encrypted and bound to the Worker at deploy time via the
+ * CF Workers Secrets API. Values are write-only — they cannot be read back.
+ *
+ * --target flag uses "target" (not --env) to avoid collision with the `env`
+ * command group name and the global --env flag which means live/test environment.
  */
 
 import chalk from 'chalk'
@@ -22,10 +25,32 @@ function requireConfig() {
   return config
 }
 
-export async function envList() {
+function parseTarget(target?: string): Array<'staging' | 'production'> | undefined {
+  if (!target) return undefined
+  const t = target.toLowerCase()
+  if (t === 'staging') return ['staging']
+  if (t === 'production') return ['production']
+  if (t === 'both') return ['staging', 'production']
+  console.error(chalk.red(`Invalid --target: ${target}. Use staging, production, or both.`))
+  process.exit(1)
+}
+
+export async function envList(opts?: { reconcile?: boolean }) {
   const config = requireConfig()
 
   try {
+    if (opts?.reconcile) {
+      logStatus('Reconciling with Cloudflare...')
+      const reconcileRes = await apiFetchJson(
+        `/api/v1/developer/apps/${config.slug}/env/reconcile`,
+        'POST',
+        {},
+      )
+      if (!reconcileRes.ok) {
+        console.error(chalk.yellow(`Reconcile failed (${reconcileRes.status}) — showing cached data`))
+      }
+    }
+
     const res = await apiFetch(`/api/v1/developer/apps/${config.slug}/env`)
 
     if (!res.ok) {
@@ -33,17 +58,31 @@ export async function envList() {
       process.exit(1)
     }
 
-    const { data } = await res.json() as { data: Array<{ key: string; updatedAt: string }> }
+    const body = await res.json() as {
+      data: Array<{ key: string; environments: string[]; updatedAt: string }>
+      last_reconciled_at: string | null
+    }
 
-    if (!data.length) {
+    if (isJsonMode()) {
+      outputSuccess(body)
+      return
+    }
+
+    if (!body.data.length) {
       console.log(chalk.yellow('No environment variables set.'))
       console.log('Use', chalk.cyan('bagdock env set <KEY> <VALUE>'), 'to add one.')
       return
     }
 
     console.log(chalk.bold(`\nEnvironment variables for ${config.slug}:\n`))
-    for (const v of data) {
-      console.log(`  ${chalk.cyan(v.key)}  ${chalk.dim(`(updated ${v.updatedAt})`)}`)
+    for (const v of body.data) {
+      const envLabel = v.environments?.length
+        ? chalk.dim(`[${v.environments.join(', ')}]`)
+        : chalk.dim('[no target]')
+      console.log(`  ${chalk.cyan(v.key)}  ${envLabel}  ${chalk.dim(`updated ${v.updatedAt}`)}`)
+    }
+    if (body.last_reconciled_at) {
+      console.log(chalk.dim(`\nLast synced with Cloudflare: ${body.last_reconciled_at}`))
     }
     console.log()
   } catch (err: any) {
@@ -52,11 +91,15 @@ export async function envList() {
   }
 }
 
-export async function envSet(key: string, value: string) {
+export async function envSet(key: string, value: string, opts?: { target?: string }) {
   const config = requireConfig()
+  const environments = parseTarget(opts?.target)
 
   try {
-    const res = await apiFetchJson(`/api/v1/developer/apps/${config.slug}/env`, 'PUT', { key, value })
+    const payload: Record<string, any> = { key, value }
+    if (environments) payload.environments = environments
+
+    const res = await apiFetchJson(`/api/v1/developer/apps/${config.slug}/env`, 'PUT', payload)
 
     if (!res.ok) {
       const body = await res.text()
@@ -64,14 +107,30 @@ export async function envSet(key: string, value: string) {
       process.exit(1)
     }
 
-    console.log(chalk.green(`Set ${key}`), chalk.dim('— will take effect on next deploy'))
+    const result = await res.json() as { status: string; environments?: Record<string, string> }
+
+    if (isJsonMode()) {
+      outputSuccess(result)
+      return
+    }
+
+    if (result.status === 'partial') {
+      console.log(chalk.yellow(`Partially set ${key}:`))
+      for (const [env, status] of Object.entries(result.environments ?? {})) {
+        const icon = status === 'ok' ? chalk.green('✓') : chalk.red('✗')
+        console.log(`  ${icon} ${env}: ${status}`)
+      }
+    } else {
+      const targetLabel = environments ? ` (${environments.join(', ')})` : ''
+      console.log(chalk.green(`Set ${key}${targetLabel}`))
+    }
   } catch (err: any) {
     console.error(chalk.red('Failed:'), err.message)
     process.exit(1)
   }
 }
 
-export async function envRemove(key: string) {
+export async function envRemove(key: string, opts?: { target?: string }) {
   const config = requireConfig()
 
   try {
@@ -82,7 +141,13 @@ export async function envRemove(key: string) {
       process.exit(1)
     }
 
-    console.log(chalk.green(`Removed ${key}`), chalk.dim('— will take effect on next deploy'))
+    if (isJsonMode()) {
+      const result = await res.json()
+      outputSuccess(result)
+      return
+    }
+
+    console.log(chalk.green(`Removed ${key}`))
   } catch (err: any) {
     console.error(chalk.red('Failed:'), err.message)
     process.exit(1)

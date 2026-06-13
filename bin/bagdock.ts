@@ -246,25 +246,28 @@ const envCmd = program
 envCmd
   .command('list')
   .description('List environment variables for this app')
-  .action(async () => {
+  .option('--reconcile', 'Force sync with Cloudflare before listing')
+  .action(async (opts: { reconcile?: boolean }) => {
     const { envList } = await import('../src/env-cmd')
-    await envList()
+    await envList({ reconcile: opts.reconcile })
   })
 
 envCmd
   .command('set <key> <value>')
   .description('Set an environment variable')
-  .action(async (key: string, value: string) => {
+  .option('--target <target>', 'Target namespace: staging, production, or both (default: both)')
+  .action(async (key: string, value: string, opts: { target?: string }) => {
     const { envSet } = await import('../src/env-cmd')
-    await envSet(key, value)
+    await envSet(key, value, { target: opts.target })
   })
 
 envCmd
   .command('remove <key>')
   .description('Remove an environment variable')
-  .action(async (key: string) => {
+  .option('--target <target>', 'Target namespace: staging, production, or both (default: both)')
+  .action(async (key: string, opts: { target?: string }) => {
     const { envRemove } = await import('../src/env-cmd')
-    await envRemove(key)
+    await envRemove(key, { target: opts.target })
   })
 
 envCmd
