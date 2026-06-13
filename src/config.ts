@@ -263,6 +263,22 @@ export type ProjectKind =
   | 'ui-extension'
   | 'microfrontend'
 
+export interface KvDeclaration {
+  description?: string
+}
+
+/**
+ * A webhook endpoint the adapter exposes. The author declares the route `path`
+ * (the same key the worker registers in its `routes` map, with a leading slash);
+ * the platform derives the full per-environment URL (`{alias}{path}`) so authors
+ * never hardcode the deployment host. See BDOK-560.
+ */
+export interface WebhookDeclaration {
+  name: string
+  path: string
+  description?: string
+}
+
 export interface BagdockJson {
   name: string
   slug: string
@@ -275,6 +291,8 @@ export interface BagdockJson {
   main: string
   compatibilityDate?: string
   env?: Record<string, { description?: string; required?: boolean }>
+  kv?: Record<string, KvDeclaration>
+  webhooks?: WebhookDeclaration[]
   wrangler?: Record<string, unknown>
 }
 

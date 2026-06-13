@@ -72,7 +72,30 @@ export async function validate() {
     }
   }
 
-  // 6 — Slug matches linked project (if linked)
+  // 6 — Webhook declarations (optional)
+  if (config.webhooks !== undefined) {
+    if (!Array.isArray(config.webhooks)) {
+      checks.push({ name: 'Webhooks', status: 'fail', message: '"webhooks" must be an array of { name, path, description? }' })
+    } else {
+      const problems: string[] = []
+      const seen = new Set<string>()
+      config.webhooks.forEach((wh, i) => {
+        if (!wh || typeof wh !== 'object') { problems.push(`#${i} is not an object`); return }
+        if (!wh.name) problems.push(`#${i} missing "name"`)
+        if (!wh.path) problems.push(`#${i} missing "path"`)
+        else if (!wh.path.startsWith('/')) problems.push(`"${wh.name ?? i}" path must start with "/" (got "${wh.path}")`)
+        if (wh.name && seen.has(wh.name)) problems.push(`duplicate name "${wh.name}"`)
+        if (wh.name) seen.add(wh.name)
+      })
+      if (problems.length) {
+        checks.push({ name: 'Webhooks', status: 'fail', message: problems.join('; ') })
+      } else {
+        checks.push({ name: 'Webhooks', status: 'pass', message: `${config.webhooks.length} declared` })
+      }
+    }
+  }
+
+  // 7 — Slug matches linked project (if linked)
   const linked = resolveSlug()
   if (linked && linked !== config.slug) {
     checks.push({ name: 'Project link', status: 'warn', message: `bagdock.json slug "${config.slug}" differs from linked project "${linked}"` })
