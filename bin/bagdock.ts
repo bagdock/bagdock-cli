@@ -27,18 +27,34 @@
  *   link      Link directory to project
  */
 
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { Command } from 'commander'
 import { login, logout, whoami, setApiKeyOverride, authList, authSwitch } from '../src/auth'
 import { init } from '../src/init'
 import { setOutputMode } from '../src/output'
 import { setProfileOverride, setEnvironmentOverride, loadLocalEnv, type BagdockEnvironment } from '../src/config'
 
+// Single source of truth for the CLI version: the package.json shipped alongside
+// the built binary (dist/bagdock.js → ../package.json), and the repo root in dev
+// (bin/bagdock.ts → ../package.json). Avoids the hardcoded string drifting behind
+// releases, as it had (stuck at 0.6.0 through several bumps).
+const pkgVersion: string = (() => {
+  try {
+    const here = dirname(fileURLToPath(import.meta.url))
+    return JSON.parse(readFileSync(join(here, '..', 'package.json'), 'utf8')).version
+  } catch {
+    return '0.0.0'
+  }
+})()
+
 const program = new Command()
 
 program
   .name('bagdock')
   .description('Bagdock developer CLI — built for humans, AI agents, and CI/CD pipelines')
-  .version('0.6.0')
+  .version(pkgVersion)
   .option('--json', 'Force JSON output (auto-enabled in non-TTY)')
   .option('-q, --quiet', 'Suppress status messages (implies --json)')
   .option('--api-key <key>', 'API key to use for this invocation')
