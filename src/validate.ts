@@ -104,12 +104,17 @@ export async function validate() {
       const seen = new Set<string>()
       config.inputs.forEach((inp, i) => {
         if (!inp || typeof inp !== 'object') { problems.push(`#${i} is not an object`); return }
-        if (!inp.key) problems.push(`#${i} missing "key"`)
-        if (!inp.label) problems.push(`"${inp.key ?? i}" missing "label"`)
-        if (inp.type !== 'text' && inp.type !== 'password') problems.push(`"${inp.key ?? i}" type must be "text" or "password" (got "${inp.type}")`)
-        if (typeof inp.required !== 'boolean') problems.push(`"${inp.key ?? i}" missing boolean "required"`)
-        if (inp.key && seen.has(inp.key)) problems.push(`duplicate key "${inp.key}"`)
-        if (inp.key) seen.add(inp.key)
+        const id = typeof inp.key === 'string' && inp.key ? inp.key : `#${i}`
+        if (typeof inp.key !== 'string' || !inp.key.trim()) problems.push(`${id} "key" must be a non-empty string`)
+        if (typeof inp.label !== 'string' || !inp.label.trim()) problems.push(`${id} "label" must be a non-empty string`)
+        if (inp.type !== 'text' && inp.type !== 'password') problems.push(`${id} type must be "text" or "password" (got "${inp.type}")`)
+        if (typeof inp.required !== 'boolean') problems.push(`${id} "required" must be a boolean`)
+        if (inp.help !== undefined && typeof inp.help !== 'string') problems.push(`${id} "help" must be a string`)
+        if (inp.placeholder !== undefined && typeof inp.placeholder !== 'string') problems.push(`${id} "placeholder" must be a string`)
+        if (typeof inp.key === 'string' && inp.key) {
+          if (seen.has(inp.key)) problems.push(`duplicate key "${inp.key}"`)
+          seen.add(inp.key)
+        }
       })
       if (problems.length) {
         checks.push({ name: 'Inputs', status: 'fail', message: problems.join('; ') })
@@ -127,8 +132,12 @@ export async function validate() {
       const problems: string[] = []
       config.displays.forEach((d, i) => {
         if (!d || typeof d !== 'object') { problems.push(`#${i} is not an object`); return }
-        if (!d.label) problems.push(`#${i} missing "label"`)
-        if (d.value === undefined && d.template === undefined) problems.push(`"${d.label ?? i}" needs "value" or "template"`)
+        const id = typeof d.label === 'string' && d.label ? `"${d.label}"` : `#${i}`
+        if (typeof d.label !== 'string' || !d.label.trim()) problems.push(`${id} "label" must be a non-empty string`)
+        if (d.value === undefined && d.template === undefined) problems.push(`${id} needs "value" or "template"`)
+        if (d.value !== undefined && typeof d.value !== 'string') problems.push(`${id} "value" must be a string`)
+        if (d.template !== undefined && typeof d.template !== 'string') problems.push(`${id} "template" must be a string`)
+        if (d.copyable !== undefined && typeof d.copyable !== 'boolean') problems.push(`${id} "copyable" must be a boolean`)
       })
       if (problems.length) {
         checks.push({ name: 'Displays', status: 'fail', message: problems.join('; ') })
