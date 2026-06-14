@@ -279,6 +279,35 @@ export interface WebhookDeclaration {
   description?: string
 }
 
+/**
+ * An install-time field the operator fills in when installing the adapter
+ * (BYO API key, account id, etc.). `type: 'password'` marks the value SECRET:
+ * the platform seals it per-installation (server-side KMS, BDOK-557) and never
+ * persists it unsealed. `type: 'text'` values are non-secret and stored in the
+ * installation config. See BDOK-560 (Phase 2).
+ */
+export interface InputDeclaration {
+  key: string
+  label: string
+  type: 'text' | 'password'
+  required: boolean
+  help?: string
+  placeholder?: string
+}
+
+/**
+ * A read-only value the operator copies into the vendor during setup (e.g. an
+ * account id, a derived endpoint, an instruction). `value` is a literal; the
+ * platform may also resolve `template` placeholders. `copyable` renders a copy
+ * button. See BDOK-560 (Phase 2).
+ */
+export interface DisplayDeclaration {
+  label: string
+  value?: string
+  template?: string
+  copyable?: boolean
+}
+
 export interface BagdockJson {
   name: string
   slug: string
@@ -293,6 +322,8 @@ export interface BagdockJson {
   env?: Record<string, { description?: string; required?: boolean }>
   kv?: Record<string, KvDeclaration>
   webhooks?: WebhookDeclaration[]
+  inputs?: InputDeclaration[]
+  displays?: DisplayDeclaration[]
   wrangler?: Record<string, unknown>
 }
 

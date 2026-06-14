@@ -95,7 +95,50 @@ export async function validate() {
     }
   }
 
-  // 7 — Slug matches linked project (if linked)
+  // 7 — Install inputs (optional)
+  if (config.inputs !== undefined) {
+    if (!Array.isArray(config.inputs)) {
+      checks.push({ name: 'Inputs', status: 'fail', message: '"inputs" must be an array of { key, label, type, required }' })
+    } else {
+      const problems: string[] = []
+      const seen = new Set<string>()
+      config.inputs.forEach((inp, i) => {
+        if (!inp || typeof inp !== 'object') { problems.push(`#${i} is not an object`); return }
+        if (!inp.key) problems.push(`#${i} missing "key"`)
+        if (!inp.label) problems.push(`"${inp.key ?? i}" missing "label"`)
+        if (inp.type !== 'text' && inp.type !== 'password') problems.push(`"${inp.key ?? i}" type must be "text" or "password" (got "${inp.type}")`)
+        if (typeof inp.required !== 'boolean') problems.push(`"${inp.key ?? i}" missing boolean "required"`)
+        if (inp.key && seen.has(inp.key)) problems.push(`duplicate key "${inp.key}"`)
+        if (inp.key) seen.add(inp.key)
+      })
+      if (problems.length) {
+        checks.push({ name: 'Inputs', status: 'fail', message: problems.join('; ') })
+      } else {
+        checks.push({ name: 'Inputs', status: 'pass', message: `${config.inputs.length} declared` })
+      }
+    }
+  }
+
+  // 8 — Display fields (optional)
+  if (config.displays !== undefined) {
+    if (!Array.isArray(config.displays)) {
+      checks.push({ name: 'Displays', status: 'fail', message: '"displays" must be an array of { label, value|template, copyable? }' })
+    } else {
+      const problems: string[] = []
+      config.displays.forEach((d, i) => {
+        if (!d || typeof d !== 'object') { problems.push(`#${i} is not an object`); return }
+        if (!d.label) problems.push(`#${i} missing "label"`)
+        if (d.value === undefined && d.template === undefined) problems.push(`"${d.label ?? i}" needs "value" or "template"`)
+      })
+      if (problems.length) {
+        checks.push({ name: 'Displays', status: 'fail', message: problems.join('; ') })
+      } else {
+        checks.push({ name: 'Displays', status: 'pass', message: `${config.displays.length} declared` })
+      }
+    }
+  }
+
+  // 9 — Slug matches linked project (if linked)
   const linked = resolveSlug()
   if (linked && linked !== config.slug) {
     checks.push({ name: 'Project link', status: 'warn', message: `bagdock.json slug "${config.slug}" differs from linked project "${linked}"` })
