@@ -47,9 +47,31 @@ jobs:
           head -1 dist/bagdock.js | grep -q "#!/usr/bin/env node" || (echo "Missing shebang" && exit 1)
           echo "Build OK — $(wc -c < dist/bagdock.js) bytes"
 
+      # Idempotency guard: this workflow fires on both push-to-main and the v*
+      # tag (and the team also cuts GitHub releases), so the same version can be
+      # triggered twice. Skip publish when that version already exists on npm so
+      # the duplicate run goes green instead of failing "cannot publish over the
+      # previously published version".
+      - name: Check if version already published
+        id: version_check
+        run: |
+          NAME=$(node -p "require('./package.json').name")
+          VER=$(node -p "require('./package.json').version")
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+          if npm view "${NAME}@${VER}" version >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "::notice::${NAME}@${VER} is already on npm — skipping publish."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish to npm
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && steps.version_check.outputs.exists == 'false' }}
         run: npx npm@latest publish --provenance --access public
+
+      - name: Skip — version already published
+        if: ${{ !inputs.dry_run && steps.version_check.outputs.exists == 'true' }}
+        run: echo "Version ${{ steps.version_check.outputs.version }} already on npm; nothing to publish."
 
       - name: Dry run — would publish
         if: ${{ inputs.dry_run }}
