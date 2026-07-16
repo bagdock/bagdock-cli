@@ -81,6 +81,18 @@ function generateWranglerToml(config: ReturnType<typeof loadBagdockJson> & {}, p
     lines.push('')
   }
 
+  // KV namespace bindings (local dev uses preview_id for Miniflare persistence)
+  if (config.kv && Object.keys(config.kv).length > 0) {
+    for (const [binding, meta] of Object.entries(config.kv)) {
+      lines.push(`# ${meta.description ?? binding}`)
+      lines.push(`[[kv_namespaces]]`)
+      lines.push(`binding = "${binding}"`)
+      lines.push(`id = "local-dev-${binding.toLowerCase()}"`)
+      lines.push(`preview_id = "local-dev-${binding.toLowerCase()}"`)
+      lines.push('')
+    }
+  }
+
   // Environment variable bindings (declared in [vars] for dev, actual values from .dev.vars)
   if (config.env && Object.keys(config.env).length > 0) {
     lines.push(`[vars]`)

@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.1] - 2026-07-16
+
+### Added
+
+- `bagdock init` scaffolds an `OPERATOR_CONFIG` KV namespace for edge projects (the per-installation lifecycle/config state store edge adapters use).
+- `bagdock dev` now emits `[[kv_namespaces]]` bindings in the generated `wrangler.toml` for any `kv` declared in `bagdock.json`, so local Miniflare persists KV between runs. No effect on projects without KV.
+
 ## [0.10.0] - 2026-07-16
 
 ### Added
