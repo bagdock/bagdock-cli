@@ -56,6 +56,11 @@ export async function init(dir: string, opts: InitOptions) {
     env: {
       API_KEY: { description: 'Provider API key', required: true },
     },
+    ...(type === 'edge' ? {
+      kv: {
+        OPERATOR_CONFIG: { description: 'Per-installation state store for lifecycle and config' },
+      },
+    } : {}),
   }
 
   await promptPublisherOverrides(config, opts)
