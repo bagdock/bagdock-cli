@@ -128,7 +128,27 @@ export async function deploy(opts: DeployOptions) {
     ...(config.webhooks ? { webhooks: config.webhooks } : {}),
     ...(config.inputs ? { inputs: config.inputs } : {}),
     ...(config.displays ? { displays: config.displays } : {}),
+    // BDOK-678: publisher identity override + marketplace description. The icon
+    // ships as a separate `icon` file part below. Only non-preview deploys
+    // persist these server-side.
+    ...(config.description ? { description: config.description } : {}),
+    ...(config.publisher ? { publisher: config.publisher } : {}),
   }))
+
+  // App icon (BDOK-678): ship the bytes so the platform can host it and mirror a
+  // stable icon_url. `bagdock validate` has already checked it is a square
+  // PNG/SVG within the size cap; a missing file is skipped (validate warns).
+  if (config.icon) {
+    const iconPath = join(cwd, config.icon)
+    if (existsSync(iconPath)) {
+      const iconBytes = readFileSync(iconPath)
+      const ext = config.icon.toLowerCase().slice(config.icon.lastIndexOf('.'))
+      const iconType = ext === '.svg' ? 'image/svg+xml' : ext === '.png' ? 'image/png' : 'application/octet-stream'
+      formData.append('icon', new Blob([iconBytes], { type: iconType }), `icon${ext}`)
+    } else {
+      console.log(chalk.yellow(`  Icon not found at ${config.icon}, skipping upload.`))
+    }
+  }
 
   try {
     const res = await fetch(`${getApiBase()}/api/v1/developer/apps/${config.slug}/deploy`, {
@@ -168,6 +188,8 @@ export async function deploy(opts: DeployOptions) {
         workerUrl: string
         namespace: string
         previewHash?: string
+        publisher_warning?: string
+        secrets_warning?: string
       }
     }
 
@@ -179,6 +201,13 @@ export async function deploy(opts: DeployOptions) {
       console.log(`  Preview ID:  ${chalk.dim(result.data.previewHash)}`)
     }
     console.log(`  Namespace:   ${chalk.dim(result.data.namespace)}`)
+
+    if (result.data.secrets_warning) {
+      console.log(chalk.yellow(`\n  ⚠ ${result.data.secrets_warning}`))
+    }
+    if (result.data.publisher_warning) {
+      console.log(chalk.yellow(`\n  ⚠ ${result.data.publisher_warning}`))
+    }
 
     if (environment === 'preview') {
       console.log(chalk.dim('\n  This is an ephemeral preview deploy. It will not replace the stable staging URL.'))

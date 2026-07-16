@@ -5,7 +5,7 @@
 import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import { join, basename } from 'path'
 import chalk from 'chalk'
-import type { BagdockJson, ProjectType, ProjectKind } from './config'
+import type { BagdockJson, ProjectType, ProjectKind, PublisherDeclaration } from './config'
 
 interface InitOptions {
   type?: string
@@ -13,6 +13,7 @@ interface InitOptions {
   category?: string
   slug?: string
   name?: string
+  yes?: boolean
 }
 
 const EDGE_KINDS = ['adapter', 'comms', 'webhook'] as const
@@ -56,6 +57,8 @@ export async function init(dir: string, opts: InitOptions) {
       API_KEY: { description: 'Provider API key', required: true },
     },
   }
+
+  await promptPublisherOverrides(config, opts)
 
   writeFileSync(join(projectDir, 'bagdock.json'), JSON.stringify(config, null, 2))
 
@@ -119,6 +122,46 @@ export async function init(dir: string, opts: InitOptions) {
   console.log(`  1. ${chalk.cyan('bun install')}    — install dependencies`)
   console.log(`  2. ${chalk.cyan('bagdock dev')}    — start local dev server`)
   console.log(`  3. ${chalk.cyan('bagdock deploy')} — deploy to Bagdock platform`)
+}
+
+/**
+ * Interactive, opt-in publisher-identity overrides (BDOK-678 Phase 2).
+ * Apps inherit publisher identity from the owning operator by default;
+ * this only runs in a TTY and lets the author override individual fields.
+ */
+async function promptPublisherOverrides(config: BagdockJson, opts: InitOptions): Promise<void> {
+  if (opts.yes === true || !process.stdin.isTTY) return
+
+  const readline = await import('readline')
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+  const ask = (q: string): Promise<string> => new Promise((res) => rl.question(q, (a) => res(a.trim())))
+
+  try {
+    const wantsOverrides = await ask('Add publisher identity overrides now? Most apps inherit from your org profile. [y/N] ')
+    if (!/^y(es)?$/i.test(wantsOverrides)) return
+
+    const company = await ask('Company name (optional): ')
+    const website = await ask('Website URL (optional): ')
+    const supportEmail = await ask('Support email (optional): ')
+    const docsUrl = await ask('Docs URL (optional): ')
+    const privacyPolicy = await ask('Privacy policy URL (optional): ')
+
+    const publisher: PublisherDeclaration = {}
+    if (company) publisher.company = company
+    if (website) publisher.website = website
+    if (supportEmail) publisher.supportEmail = supportEmail
+    if (docsUrl) publisher.docsUrl = docsUrl
+    if (privacyPolicy) publisher.privacyPolicy = privacyPolicy
+    if (Object.keys(publisher).length > 0) config.publisher = publisher
+
+    const description = await ask('One-line description (optional): ')
+    if (description) config.description = description
+
+    const icon = await ask('Icon path, square PNG/SVG >=128px (optional): ')
+    if (icon) config.icon = icon
+  } finally {
+    rl.close()
+  }
 }
 
 function resolveKind(type: ProjectType, kindOpt?: string): ProjectKind {

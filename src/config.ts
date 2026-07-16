@@ -308,6 +308,27 @@ export interface DisplayDeclaration {
   copyable?: boolean
 }
 
+/**
+ * Optional publisher-identity override (BDOK-678). Publisher identity normally
+ * derives from the owning org's profile at render time; this block lets an app
+ * override individual fields from the code that ships it (HubSpot-projects
+ * style). It is a PER-FIELD raw-config override — the platform mirrors it into
+ * the owning operator's regional `publisher_configs` on deploy, where the
+ * dashboard resolves each field as `manifest override → org profile default`.
+ *
+ * Every field is optional: an omitted field falls through to the org profile,
+ * so a public app with no `publisher` block still renders its org's identity
+ * (the derivation law — no N stale copies of one org fact). Field names follow
+ * the BDOK-560 camelCase-manifest → mirrored-config convention.
+ */
+export interface PublisherDeclaration {
+  company?: string
+  website?: string
+  supportEmail?: string
+  docsUrl?: string
+  privacyPolicy?: string
+}
+
 export interface BagdockJson {
   name: string
   slug: string
@@ -319,6 +340,16 @@ export interface BagdockJson {
   visibility: 'public' | 'private'
   main: string
   compatibilityDate?: string
+  /** One-line marketplace description. Mirrored into control-plane config. */
+  description?: string
+  /**
+   * Repo-relative path to the app icon (square PNG or SVG). Per-app by nature,
+   * so it is always authored in the manifest rather than derived from the org
+   * profile. Validated by `bagdock validate` (square, PNG/SVG, ≥128px, ≤256KB).
+   */
+  icon?: string
+  /** Per-field publisher-identity override. See {@link PublisherDeclaration}. */
+  publisher?: PublisherDeclaration
   env?: Record<string, { description?: string; required?: boolean }>
   kv?: Record<string, KvDeclaration>
   webhooks?: WebhookDeclaration[]

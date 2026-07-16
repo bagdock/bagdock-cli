@@ -141,6 +141,7 @@ program
   .option('-c, --category <category>', 'Category')
   .option('-s, --slug <slug>', 'Unique project slug')
   .option('-n, --name <name>', 'Display name')
+  .option('-y, --yes', 'Skip interactive prompts (inherit publisher identity from the org profile)')
   .action((dir: string | undefined, opts: Record<string, string>) => init(dir ?? '.', opts))
 
 // ---------- Dev ----------
