@@ -6,9 +6,9 @@
  */
 
 import chalk from 'chalk'
-import { existsSync, statSync } from 'fs'
+import { existsSync, readFileSync, statSync } from 'fs'
 import { join } from 'path'
-import { loadBagdockJson, type ProjectType, type ProjectKind } from './config'
+import { loadBagdockJson, type BagdockJson, type ProjectType, type ProjectKind } from './config'
 import { isJsonMode, outputSuccess, outputError } from './output'
 import { resolveSlug } from './link'
 
@@ -21,6 +21,11 @@ interface Check {
 const VALID_TYPES: ProjectType[] = ['edge', 'app']
 const VALID_KINDS: ProjectKind[] = ['adapter', 'comms', 'webhook', 'ui-extension', 'microfrontend']
 const MAX_BUNDLE_BYTES = 10 * 1024 * 1024 // 10 MB
+
+// App-icon spec (BDOK-678): square PNG/SVG, ≥128px, ≤256KB.
+const ICON_MIN_PX = 128
+const ICON_MAX_BYTES = 256 * 1024
+const PUBLISHER_FIELDS = ['company', 'website', 'supportEmail', 'docsUrl', 'privacyPolicy'] as const
 
 export async function validate() {
   const checks: Check[] = []
@@ -147,13 +152,172 @@ export async function validate() {
     }
   }
 
-  // 9 — Slug matches linked project (if linked)
+  // 9 — App icon (BDOK-678, optional). If declared, the file must be a square
+  // PNG/SVG within the size bounds; if not declared, the app renders the
+  // initial-tile fallback, so absence is at most a public-app nudge (check 10).
+  if (config.icon !== undefined) {
+    checks.push(checkIcon(dir, config.icon))
+  }
+
+  // 10 — Publisher identity (BDOK-678, optional override). A public app with no
+  // publisher block validly inherits its org profile at render time (the CLI
+  // cannot see that profile offline), so a missing block is a WARN nudge, never
+  // a failure. A present block must be well-formed.
+  for (const c of checkPublisher(config)) checks.push(c)
+
+  // 11 — Slug matches linked project (if linked)
   const linked = resolveSlug()
   if (linked && linked !== config.slug) {
     checks.push({ name: 'Project link', status: 'warn', message: `bagdock.json slug "${config.slug}" differs from linked project "${linked}"` })
   }
 
   return finish(checks)
+}
+
+// ============================================================================
+// ICON + PUBLISHER CHECKS (BDOK-678)
+// ============================================================================
+
+/**
+ * Validate the declared app icon: square, PNG or SVG, ≥128px, ≤256KB. Reads
+ * image dimensions with zero dependencies — the PNG IHDR header for rasters and
+ * the width/height/viewBox attributes for SVG. SVG is vector, so the ≥128px
+ * floor is advisory there; a non-square SVG is still flagged.
+ */
+export function checkIcon(dir: string, iconPath: string): Check {
+  if (typeof iconPath !== 'string' || !iconPath.trim()) {
+    return { name: 'Icon', status: 'fail', message: '"icon" must be a non-empty path' }
+  }
+  const abs = join(dir, iconPath)
+  if (!existsSync(abs)) {
+    return { name: 'Icon', status: 'fail', message: `File not found: ${iconPath}` }
+  }
+
+  const size = statSync(abs).size
+  if (size > ICON_MAX_BYTES) {
+    return { name: 'Icon', status: 'fail', message: `${(size / 1024).toFixed(0)} KB exceeds the ${ICON_MAX_BYTES / 1024} KB limit` }
+  }
+
+  const ext = iconPath.toLowerCase().slice(iconPath.lastIndexOf('.'))
+  const buf = readFileSync(abs)
+
+  if (ext === '.png' || isPng(buf)) {
+    const dims = pngDimensions(buf)
+    if (!dims) {
+      return { name: 'Icon', status: 'fail', message: `${iconPath} is not a valid PNG` }
+    }
+    if (dims.width !== dims.height) {
+      return { name: 'Icon', status: 'fail', message: `${iconPath} must be square (got ${dims.width}×${dims.height})` }
+    }
+    if (dims.width < ICON_MIN_PX) {
+      return { name: 'Icon', status: 'fail', message: `${iconPath} is ${dims.width}px — must be at least ${ICON_MIN_PX}px` }
+    }
+    return { name: 'Icon', status: 'pass', message: `${iconPath} (${dims.width}×${dims.height} PNG, ${(size / 1024).toFixed(0)} KB)` }
+  }
+
+  if (ext === '.svg' || isSvg(buf)) {
+    const dims = svgDimensions(buf.toString('utf-8'))
+    if (dims && dims.width > 0 && dims.height > 0) {
+      const ratio = dims.width / dims.height
+      if (ratio < 0.98 || ratio > 1.02) {
+        return { name: 'Icon', status: 'fail', message: `${iconPath} must be square (viewBox/size is ${dims.width}×${dims.height})` }
+      }
+    }
+    return { name: 'Icon', status: 'pass', message: `${iconPath} (SVG, ${(size / 1024).toFixed(0)} KB)` }
+  }
+
+  return { name: 'Icon', status: 'fail', message: `${iconPath} must be a PNG or SVG` }
+}
+
+/**
+ * Validate the optional publisher-identity override. Present fields must be
+ * well-formed (http(s) URLs, an email for supportEmail). A public app with no
+ * publisher block gets a WARN — its identity inherits the org profile, which the
+ * offline CLI cannot confirm, so we nudge rather than block.
+ */
+export function checkPublisher(config: BagdockJson): Check[] {
+  const checks: Check[] = []
+  const pub = config.publisher
+
+  if (pub === undefined) {
+    if (config.visibility === 'public') {
+      checks.push({
+        name: 'Publisher',
+        status: 'warn',
+        message: 'No publisher block — identity will inherit your org profile. Add a "publisher" block to override per app.',
+      })
+    }
+    return checks
+  }
+
+  if (typeof pub !== 'object' || Array.isArray(pub)) {
+    checks.push({ name: 'Publisher', status: 'fail', message: '"publisher" must be an object of { company?, website?, supportEmail?, docsUrl?, privacyPolicy? }' })
+    return checks
+  }
+
+  const problems: string[] = []
+  const unknown = Object.keys(pub).filter((k) => !PUBLISHER_FIELDS.includes(k as any))
+  if (unknown.length) problems.push(`unknown field(s): ${unknown.join(', ')}`)
+
+  for (const [field, val] of Object.entries(pub)) {
+    if (val === undefined || val === null) continue
+    if (typeof val !== 'string' || !val.trim()) { problems.push(`"${field}" must be a non-empty string`); continue }
+    if ((field === 'website' || field === 'docsUrl' || field === 'privacyPolicy') && !isHttpUrl(val)) {
+      problems.push(`"${field}" must be an http(s) URL (got "${val}")`)
+    }
+    if (field === 'supportEmail' && !isEmail(val)) {
+      problems.push(`"supportEmail" must be an email address (got "${val}")`)
+    }
+  }
+
+  if (problems.length) {
+    checks.push({ name: 'Publisher', status: 'fail', message: problems.join('; ') })
+  } else {
+    const provided = PUBLISHER_FIELDS.filter((f) => (pub as any)[f])
+    checks.push({ name: 'Publisher', status: 'pass', message: `override: ${provided.join(', ') || '(empty)'}` })
+  }
+  return checks
+}
+
+function isPng(buf: Buffer): boolean {
+  const sig = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]
+  return buf.length >= 8 && sig.every((b, i) => buf[i] === b)
+}
+
+/** PNG width/height live big-endian in the IHDR chunk at byte offsets 16 and 20. */
+function pngDimensions(buf: Buffer): { width: number; height: number } | null {
+  if (!isPng(buf) || buf.length < 24) return null
+  // Bytes 12–15 must spell "IHDR" for the dimensions to be at 16/20.
+  if (buf.toString('ascii', 12, 16) !== 'IHDR') return null
+  return { width: buf.readUInt32BE(16), height: buf.readUInt32BE(20) }
+}
+
+function isSvg(buf: Buffer): boolean {
+  const head = buf.toString('utf-8', 0, Math.min(buf.length, 512)).trimStart()
+  return head.startsWith('<?xml') ? head.includes('<svg') : head.startsWith('<svg')
+}
+
+/** Prefer explicit width/height; fall back to the viewBox's w/h for aspect. */
+function svgDimensions(text: string): { width: number; height: number } | null {
+  const w = text.match(/\bwidth\s*=\s*["']?\s*([\d.]+)/i)
+  const h = text.match(/\bheight\s*=\s*["']?\s*([\d.]+)/i)
+  if (w && h) return { width: parseFloat(w[1]), height: parseFloat(h[1]) }
+  const vb = text.match(/\bviewBox\s*=\s*["']\s*[\d.-]+\s+[\d.-]+\s+([\d.]+)\s+([\d.]+)/i)
+  if (vb) return { width: parseFloat(vb[1]), height: parseFloat(vb[2]) }
+  return null
+}
+
+function isHttpUrl(v: string): boolean {
+  try {
+    const u = new URL(v)
+    return u.protocol === 'http:' || u.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
+function isEmail(v: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
 }
 
 function finish(checks: Check[]) {

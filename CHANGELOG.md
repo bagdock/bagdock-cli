@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] - 2026-07-16
+
+### Added
+
+- App publisher identity in `bagdock.json` (BDOK-678): an optional `publisher` block (`company`, `website`, `supportEmail`, `docsUrl`, `privacyPolicy`), an `icon` path, and a `description`. Publisher fields inherit from your org profile by default and override per field, so most apps need no `publisher` block at all.
+- `bagdock validate` now checks the app icon (square PNG or SVG, at least 128px, up to 256KB) and any publisher fields. A public app with no publisher block gets a warning, not a failure, since its identity inherits the org profile.
+- `bagdock init` offers interactive publisher overrides and inherits from the org profile by default. `--yes` (or a non-interactive shell) skips the prompts.
+- `bagdock deploy` ships the publisher block, description, and icon bytes. The platform hosts the icon and mirrors publisher identity into the dashboard.
+- `bagdock submit` runs an advisory publisher-completeness check for public apps before submitting for review.
+
 ## [0.5.0] - 2026-04-05
 
 ### Added

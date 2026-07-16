@@ -26,6 +26,26 @@ export async function submit() {
     process.exit(1)
   }
 
+  // Advisory publisher-identity pre-check (BDOK-678). This is a heads-up, not a
+  // gate: the authoritative completeness check runs server-side at review, where
+  // your org profile can complete fields the manifest omits (which this offline
+  // CLI cannot see). So we only nudge on likely gaps for public apps.
+  if (config.visibility === 'public') {
+    const pub = config.publisher ?? {}
+    const recommended: Array<[keyof typeof pub, string]> = [
+      ['company', 'company'],
+      ['website', 'website'],
+      ['supportEmail', 'supportEmail'],
+      ['privacyPolicy', 'privacyPolicy'],
+    ]
+    const missing = recommended.filter(([k]) => !pub[k]).map(([, label]) => label)
+    if (missing.length) {
+      console.log(chalk.yellow(`  Heads-up: publisher ${missing.join(', ')} not set in bagdock.json.`))
+      console.log(chalk.dim(`  Reviewers need a complete publisher identity. These fields fall back to your org`))
+      console.log(chalk.dim(`  profile — add a "publisher" block to override them per app. Submitting anyway.\n`))
+    }
+  }
+
   console.log(chalk.cyan(`\nSubmitting ${chalk.bold(config.slug)} for marketplace review...\n`))
 
   try {
