@@ -1,0 +1,173 @@
+name: Sync Homebrew tap
+
+# Formalizes bagdock/homebrew-cli as a generated, one-way release mirror
+# (BDOK-1232, pairs with BDOK-1227). On every @bagdock/cli GitHub Release,
+# render Formula/bagdock.rb (version + npm tarball URL + sha256) and push it
+# to bagdock/homebrew-cli as the shared mirror-sync GitHub App.
+#
+# This is deliberately NOT a caller of bagdock/bagdock's
+# mirror-sync.reusable.yml (BDOK-1033): that workflow builds/tests a
+# monorepo package and copies an allowlisted tree via mirror.json, which
+# doesn't apply here — there is no packages/cli in the monorepo and no
+# mirror.json, and the tap's payload is one file rendered from external
+# release data, not a copied tree. It reuses that foundation's App and
+# environment instead of inventing new ones: same shared GitHub App
+# (bagdock-mirror-sync), same MIRROR_SYNC_APP_CLIENT_ID / _PRIVATE_KEY
+# secrets, same mirror-release environment and its required-reviewer gate.
+# See docs/mirror-inversion-runbook.md in bagdock/bagdock (§7, homebrew-cli).
+#
+# One-time setup (installing the shared App on bagdock/homebrew-cli, branch
+# protection there with the App as bypass actor) is Duncan-gated. Until then
+# every run stops cleanly at the "Require sync App to be configured" step.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to sync (bare semver, e.g. 0.10.1). Defaults to the release tag."
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: homebrew-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    environment: mirror-release
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Resolve version
+        id: version
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          DISPATCH_VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [ -n "${DISPATCH_VERSION:-}" ]; then
+            VERSION="$DISPATCH_VERSION"
+          elif [ -n "${RELEASE_TAG:-}" ]; then
+            VERSION="${RELEASE_TAG#v}"
+          else
+            echo "::error::No release tag or workflow_dispatch version provided."
+            exit 1
+          fi
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Resolved version '$VERSION' is not a bare semver (x.y.z)."
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for npm to publish this version
+        id: npm
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        # Cutting this GitHub release and bagdock-cli's own npm publish
+        # (.github/workflows/publish.yml, OIDC trusted publishing) are two
+        # separate steps with no ordering guarantee, so poll briefly instead
+        # of assuming npm is already populated.
+        run: |
+          set -euo pipefail
+          META=""
+          for attempt in 1 2 3 4 5 6; do
+            if META="$(curl -sS -f "https://registry.npmjs.org/@bagdock/cli/${VERSION}")"; then
+              break
+            fi
+            echo "npm registry does not have @bagdock/cli@${VERSION} yet (attempt ${attempt}/6); waiting 10s..."
+            META=""
+            sleep 10
+          done
+          if [ -z "$META" ]; then
+            echo "::error::@bagdock/cli@${VERSION} never appeared on the npm registry after 6 attempts."
+            exit 1
+          fi
+          TARBALL="$(node -e 'let d="";process.stdin.on("data",c=>d+=c);process.stdin.on("end",()=>{const dist=JSON.parse(d).dist;if(!dist||!dist.tarball)process.exit(1);console.log(dist.tarball)})' <<<"$META")"
+          if [ -z "$TARBALL" ]; then
+            echo "::error::Could not read dist.tarball from npm registry metadata for @bagdock/cli@${VERSION}."
+            exit 1
+          fi
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+
+      - name: Download tarball and compute sha256
+        id: sha
+        env:
+          TARBALL: ${{ steps.npm.outputs.tarball }}
+        # npm registry metadata only exposes dist.shasum (SHA-1) and
+        # dist.integrity (SRI, SHA-512) — never SHA-256. Homebrew requires
+        # SHA-256 for the url resource, including in custom taps (verified
+        # https://github.com/Homebrew/brew/blob/HEAD/docs/Checksum-Requirements.md,
+        # 2026-09-06), so it has to be computed from the downloaded tarball.
+        run: |
+          set -euo pipefail
+          curl -sS -f -o "$RUNNER_TEMP/cli.tgz" "$TARBALL"
+          SHA256="$(sha256sum "$RUNNER_TEMP/cli.tgz" | cut -d' ' -f1)"
+          echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
+
+      - name: Render Formula/bagdock.rb
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TARBALL: ${{ steps.npm.outputs.tarball }}
+          SHA256: ${{ steps.sha.outputs.sha256 }}
+        run: |
+          node scripts/render-homebrew-formula.mjs \
+            --version "$VERSION" --url "$TARBALL" --sha256 "$SHA256" \
+            --out "$RUNNER_TEMP/bagdock.rb"
+
+      - name: Require sync App to be configured
+        env:
+          CLIENT_ID: ${{ secrets.MIRROR_SYNC_APP_CLIENT_ID }}
+        run: |
+          if [ -z "$CLIENT_ID" ]; then
+            echo "::error::Mirror sync App is not configured (MIRROR_SYNC_APP_CLIENT_ID missing on the mirror-release environment). See docs/mirror-inversion-runbook.md in bagdock/bagdock."
+            exit 1
+          fi
+
+      - name: Mint sync App token (contents:write on the tap only)
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          # client-id is the recommended input for create-github-app-token@v3
+          # (app-id is legacy) — same convention as mirror-sync.reusable.yml.
+          client-id: ${{ secrets.MIRROR_SYNC_APP_CLIENT_ID }}
+          private-key: ${{ secrets.MIRROR_SYNC_APP_PRIVATE_KEY }}
+          owner: bagdock
+          repositories: homebrew-cli
+          permission-contents: write
+
+      - name: Checkout the tap (as the App)
+        uses: actions/checkout@v4
+        with:
+          repository: bagdock/homebrew-cli
+          token: ${{ steps.app-token.outputs.token }}
+          path: tap
+          fetch-depth: 1
+
+      - name: Apply, commit, and push
+        working-directory: tap
+        env:
+          APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          cp "$RUNNER_TEMP/bagdock.rb" Formula/bagdock.rb
+          git config user.name  "${APP_SLUG}[bot]"
+          git config user.email "${APP_SLUG}[bot]@users.noreply.github.com"
+          git add Formula/bagdock.rb
+          if git diff --cached --quiet; then
+            echo "Tap already up to date at v${VERSION}; nothing to push."
+            exit 0
+          fi
+          git commit -m "sync: bagdock ${VERSION} from bagdock/bagdock-cli"
+          git push origin HEAD:main
+          echo "Pushed Formula/bagdock.rb for v${VERSION}."
